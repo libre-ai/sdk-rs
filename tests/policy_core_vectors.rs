@@ -620,6 +620,88 @@ fn policy_core_v2_golden_hashes_are_portable_and_enforce_approval_separation() {
 }
 
 #[test]
+fn policy_core_v2_resource_budgets_match_schema_maxima() {
+    let budgets: Value = serde_json::from_str(include_str!(
+        "../../../contracts/fixtures/policy-core-v2/resource-budgets.v1.json"
+    ))
+    .expect("policy-core v2 resource budgets");
+    assert_eq!(
+        budgets["schemaVersion"],
+        "libre-ai.policy-core-resource-budgets.v1"
+    );
+    assert_eq!(budgets["status"], "candidate-preimplementation");
+
+    let bytes = &budgets["byteLimits"];
+    let policy_bytes = bytes["policyInput"].as_u64().expect("policy bytes");
+    let snapshot_bytes = bytes["snapshotInput"].as_u64().expect("snapshot bytes");
+    let need_bytes = bytes["needInput"].as_u64().expect("need bytes");
+    assert_eq!(policy_bytes, 8 * 1024 * 1024);
+    assert_eq!(snapshot_bytes, 8 * 1024 * 1024);
+    assert_eq!(need_bytes, 8 * 1024 * 1024);
+    assert_eq!(
+        bytes["totalJsonInput"].as_u64(),
+        Some(policy_bytes + snapshot_bytes + need_bytes)
+    );
+    assert_eq!(bytes["evaluatedAt"], 64);
+    assert_eq!(bytes["successfulOutput"], 2 * 1024 * 1024);
+
+    let cardinality = &budgets["cardinalityLimits"];
+    let rules = cardinality["rules"].as_u64().expect("rules");
+    let model_facts = cardinality["modelFacts"].as_u64().expect("model facts");
+    let need_facts = cardinality["needFacts"].as_u64().expect("need facts");
+    let set_members = cardinality["setMembersPerRule"]
+        .as_u64()
+        .expect("set members");
+    let policy_schema: Value = serde_json::from_str(include_str!(
+        "../../../contracts/schemas/policy-definition.v2.schema.json"
+    ))
+    .expect("policy schema");
+    let snapshot_schema: Value = serde_json::from_str(include_str!(
+        "../../../contracts/schemas/model-snapshot.v2.schema.json"
+    ))
+    .expect("snapshot schema");
+    let need_schema: Value = serde_json::from_str(include_str!(
+        "../../../contracts/schemas/policy-need.v2.schema.json"
+    ))
+    .expect("need schema");
+    assert_eq!(policy_schema["properties"]["rules"]["maxItems"], rules);
+    assert_eq!(
+        snapshot_schema["properties"]["facts"]["maxItems"],
+        model_facts
+    );
+    assert_eq!(need_schema["properties"]["facts"]["maxItems"], need_facts);
+    let schema_set_members = policy_schema["$defs"]["factSet"]["oneOf"]
+        .as_array()
+        .expect("fact set variants")
+        .iter()
+        .filter_map(|variant| variant["maxItems"].as_u64())
+        .max()
+        .expect("fact set maximum");
+    assert_eq!(set_members, schema_set_members);
+    assert_eq!(cardinality["setMembersAcrossPolicy"], rules * set_members);
+
+    let matched_pairs = rules * model_facts.max(need_facts);
+    let comparisons_per_lookup = u64::from(set_members.ilog2() + 1);
+    let cpu = &budgets["cpuQualification"];
+    assert_eq!(cpu["ruleOccurrenceEvaluations"], matched_pairs);
+    assert_eq!(cpu["setMemberComparisonsPerLookup"], comparisons_per_lookup);
+    assert_eq!(
+        cpu["setMemberComparisons"],
+        matched_pairs * comparisons_per_lookup
+    );
+    assert_eq!(
+        cpu["setLookup"],
+        "sorted-binary-search-or-equivalent-bounded-lookup"
+    );
+    assert_eq!(cpu["duplicateDetection"], "canonical-hash-or-ordered-index");
+    assert!(cpu["wallClockLimit"].is_null());
+    assert_eq!(
+        budgets["memoryQualification"]["peakComponentLinearMemoryBytes"],
+        256 * 1024 * 1024
+    );
+}
+
+#[test]
 fn policy_core_operator_fixture_covers_the_closed_matrix() {
     let operators: Value = serde_json::from_str(include_str!(
         "../../../contracts/fixtures/policy-core-v1/operators.json"
