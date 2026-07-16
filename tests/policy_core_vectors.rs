@@ -1,7 +1,10 @@
+use serde::de::{DeserializeSeed, Error as _, MapAccess, SeqAccess, Visitor};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
-use std::fmt::Write as _;
+use std::collections::HashSet;
+use std::fmt::{self, Write as _};
+use std::fs;
 
 fn canonical_json(value: &Value) -> Vec<u8> {
     let mut output = Vec::new();
@@ -155,6 +158,194 @@ fn without(value: &Value, keys: &[&str]) -> Value {
         object.remove(*key);
     }
     projection
+}
+
+struct StrictJsonSeed;
+
+impl<'de> DeserializeSeed<'de> for StrictJsonSeed {
+    type Value = ();
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(StrictJsonVisitor)
+    }
+}
+
+struct StrictJsonVisitor;
+
+impl<'de> Visitor<'de> for StrictJsonVisitor {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON value without duplicate object members")
+    }
+
+    fn visit_bool<E>(self, _value: bool) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_i64<E>(self, _value: i64) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_u64<E>(self, _value: u64) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        if value.is_finite() {
+            Ok(())
+        } else {
+            Err(E::custom("non-finite JSON number"))
+        }
+    }
+
+    fn visit_str<E>(self, _value: &str) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_string<E>(self, _value: String) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        while sequence.next_element_seed(StrictJsonSeed)?.is_some() {}
+        Ok(())
+    }
+
+    fn visit_map<A>(self, mut object: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut keys = HashSet::new();
+        while let Some(key) = object.next_key::<String>()? {
+            if !keys.insert(key) {
+                return Err(A::Error::custom("duplicate JSON object member"));
+            }
+            object.next_value_seed(StrictJsonSeed)?;
+        }
+        Ok(())
+    }
+}
+
+fn decode_strict_json(bytes: &[u8]) -> Result<(), String> {
+    if bytes.starts_with(&[0xef, 0xbb, 0xbf]) {
+        return Err("UTF-8 BOM is forbidden".to_owned());
+    }
+    let input = std::str::from_utf8(bytes).map_err(|error| error.to_string())?;
+    let mut deserializer = serde_json::Deserializer::from_str(input);
+    StrictJsonSeed
+        .deserialize(&mut deserializer)
+        .map_err(|error| error.to_string())?;
+    deserializer.end().map_err(|error| error.to_string())
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let mut encoded = String::with_capacity(64);
+    for byte in hasher.finalize() {
+        write!(&mut encoded, "{byte:02x}").expect("write to string");
+    }
+    encoded
+}
+
+#[test]
+fn policy_core_raw_inputs_are_rejected_before_schema_validation() {
+    let manifest: Value = serde_json::from_str(include_str!(
+        "../../../contracts/fixtures/policy-core-invalid-json/manifest.json"
+    ))
+    .expect("policy-core raw input manifest");
+    assert_eq!(
+        manifest["schemaVersion"],
+        "libre-ai.policy-core-raw-input-vectors.v1"
+    );
+    let cases = manifest["cases"].as_array().expect("raw input cases");
+    assert_eq!(cases.len(), 9);
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../contracts/fixtures/policy-core-invalid-json");
+    let mut ids = HashSet::new();
+    let mut defects = HashSet::new();
+
+    for case in cases {
+        let id = case["id"].as_str().expect("raw input id");
+        assert!(ids.insert(id), "duplicate raw input id: {id}");
+        let file = case["file"].as_str().expect("raw input file");
+        assert!(
+            file.ends_with(".bin")
+                && file.bytes().all(|byte| byte.is_ascii_lowercase()
+                    || byte.is_ascii_digit()
+                    || b"-.".contains(&byte)),
+            "unsafe raw input file name: {file}"
+        );
+        let bytes = fs::read(root.join(file)).expect("raw input bytes");
+        assert_eq!(
+            bytes.len() as u64,
+            case["byteLength"].as_u64().expect("raw byte length"),
+            "{id}: byte length"
+        );
+        assert_eq!(
+            sha256_hex(&bytes),
+            case["inputSha256"].as_str().expect("raw input digest"),
+            "{id}: SHA-256"
+        );
+
+        let defect = case["defect"].as_str().expect("raw input defect");
+        defects.insert(defect);
+        let strict_error = decode_strict_json(&bytes).expect_err("forbidden input accepted");
+        match defect {
+            "bom" => assert!(bytes.starts_with(&[0xef, 0xbb, 0xbf])),
+            "invalid-utf8" => assert!(std::str::from_utf8(&bytes).is_err()),
+            "duplicate-member" => {
+                assert!(serde_json::from_slice::<Value>(&bytes).is_ok());
+                assert!(strict_error.contains("duplicate JSON object member"));
+            }
+            "unpaired-surrogate" | "invalid-number" => {
+                assert!(serde_json::from_slice::<Value>(&bytes).is_err());
+            }
+            other => panic!("unknown raw input defect: {other}"),
+        }
+
+        for (major, message) in [
+            ("policy-core-v1", "input does not conform to policy-core-v1"),
+            ("policy-core-v2", "input does not conform to policy-core-v2"),
+        ] {
+            let expected = &case["expectedErrors"][major];
+            assert_eq!(expected["code"], "policy.input_invalid", "{id}: {major}");
+            assert_eq!(expected["message"], message, "{id}: {major}");
+        }
+    }
+
+    assert_eq!(
+        defects,
+        HashSet::from([
+            "bom",
+            "invalid-utf8",
+            "duplicate-member",
+            "unpaired-surrogate",
+            "invalid-number",
+        ])
+    );
+    decode_strict_json(
+        br#"{"key":1,"\u006bEy":2,"value":"\uD834\uDD1E","numbers":[0,-1.25,1e+20]}"#,
+    )
+    .expect("valid strict JSON control");
 }
 
 #[test]
