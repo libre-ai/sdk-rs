@@ -296,6 +296,139 @@ fn policy_core_golden_hashes_are_portable_and_order_stable() {
 }
 
 #[test]
+fn policy_core_v2_golden_hashes_are_portable_and_enforce_approval_separation() {
+    let golden: Value = serde_json::from_str(include_str!(
+        "../../../contracts/fixtures/policy-core-v2/golden.json"
+    ))
+    .expect("policy-core v2 golden vectors");
+    assert_eq!(
+        golden["schemaVersion"],
+        "libre-ai.policy-core-golden-vectors.v2"
+    );
+    assert_eq!(golden["engineVersion"], "2.0.0");
+
+    let cases = golden["cases"].as_array().expect("golden cases");
+    assert_eq!(cases.len(), 18);
+    let mut order_outputs = Vec::new();
+    let mut saw_fractional_number = false;
+    let mut saw_tenant_mismatch = false;
+    let mut saw_invalid_duplicate = false;
+    let mut saw_duplicate_rule_id = false;
+    let mut saw_self_approval = false;
+
+    for case in cases {
+        let case_id = case["id"].as_str().expect("case id");
+        if case_id == "duplicate-exact-fact" {
+            assert_eq!(case["expectedError"]["code"], "policy.input_invalid");
+            saw_invalid_duplicate = true;
+            continue;
+        }
+
+        let policy = &case["policy"];
+        let policy_subject = json!({
+            "schemaVersion": policy["schemaVersion"],
+            "id": policy["id"],
+            "tenantId": policy["tenantId"],
+            "version": policy["version"],
+            "status": policy["status"],
+            "proposedBy": policy["proposedBy"],
+            "rules": policy["rules"],
+        });
+        let policy_digest = digest(
+            "libre-ai.policy-definition.v2",
+            policy_subject,
+            Some("policy"),
+        );
+        assert_eq!(policy["digest"], policy_digest, "{case_id}: policy digest");
+        assert_eq!(
+            policy["approval"]["subjectDigest"], policy_digest,
+            "{case_id}: approval subject digest"
+        );
+        let self_approval = policy["approval"]["approverId"] == policy["proposedBy"];
+
+        let snapshot = &case["snapshot"];
+        assert_eq!(
+            snapshot["digest"],
+            digest(
+                "libre-ai.model-snapshot.v2",
+                without(snapshot, &["digest"]),
+                Some("snapshot")
+            ),
+            "{case_id}: snapshot digest"
+        );
+        let need = &case["need"];
+        assert_eq!(
+            need["digest"],
+            digest(
+                "libre-ai.policy-need.v2",
+                without(need, &["digest"]),
+                Some("need")
+            ),
+            "{case_id}: need digest"
+        );
+
+        if let Some(error) = case.get("expectedError") {
+            match error["code"].as_str().expect("error code") {
+                "policy.tenant_mismatch" => saw_tenant_mismatch = true,
+                "policy.rule_id_duplicate" => saw_duplicate_rule_id = true,
+                "policy.approval_invalid" => {
+                    assert!(
+                        self_approval,
+                        "approval error must demonstrate self-approval"
+                    );
+                    saw_self_approval = true;
+                }
+                code => panic!("unexpected schema-valid v2 error vector: {code}"),
+            }
+            continue;
+        }
+        assert!(!self_approval, "{case_id}: successful input self-approves");
+
+        let evaluation = &case["expectedEvaluation"];
+        let evaluation_digest = digest(
+            "libre-ai.policy-evaluation.v2",
+            without(evaluation, &["id", "digest"]),
+            None,
+        );
+        assert_eq!(
+            evaluation["digest"], evaluation_digest,
+            "{case_id}: evaluation digest"
+        );
+        assert_eq!(
+            evaluation["id"],
+            format!("urn:libre-ai:evaluation:{evaluation_digest}"),
+            "{case_id}: evaluation id"
+        );
+
+        let rule_ids = evaluation["ruleResults"]
+            .as_array()
+            .expect("rule results")
+            .iter()
+            .map(|result| result["ruleId"].as_str().expect("rule id"))
+            .collect::<Vec<_>>();
+        assert!(
+            rule_ids.windows(2).all(|pair| pair[0] < pair[1]),
+            "{case_id}: rule results are not strictly sorted"
+        );
+        if case_id.starts_with("order-independence-") {
+            order_outputs.push(evaluation.clone());
+        }
+        if case_id == "fractional-number-jcs" {
+            assert_eq!(case["snapshot"]["facts"][0]["value"], json!(0.000001));
+            saw_fractional_number = true;
+        }
+    }
+
+    assert!(saw_fractional_number);
+    assert!(saw_tenant_mismatch);
+    assert!(saw_invalid_duplicate);
+    assert!(saw_duplicate_rule_id);
+    assert!(saw_self_approval);
+    assert_eq!(order_outputs.len(), 2);
+    assert_eq!(order_outputs[0], order_outputs[1]);
+}
+
+#[test]
 fn policy_core_operator_fixture_covers_the_closed_matrix() {
     let operators: Value = serde_json::from_str(include_str!(
         "../../../contracts/fixtures/policy-core-v1/operators.json"
@@ -319,5 +452,18 @@ fn policy_core_operator_fixture_covers_the_closed_matrix() {
             .expect("invalid vectors")
             .len()
             >= 10
+    );
+
+    let operators_v2: Value = serde_json::from_str(include_str!(
+        "../../../contracts/fixtures/policy-core-v2/operators.json"
+    ))
+    .expect("policy-core v2 operator vectors");
+    assert_eq!(
+        operators_v2["schemaVersion"],
+        "libre-ai.policy-core-operator-vectors.v2"
+    );
+    assert_eq!(
+        operators_v2["vectors"].as_array().expect("vectors").len(),
+        28
     );
 }
