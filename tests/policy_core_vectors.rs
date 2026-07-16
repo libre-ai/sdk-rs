@@ -717,7 +717,7 @@ fn policy_core_v2_resource_budgets_match_schema_maxima() {
         bytes["totalJsonInput"].as_u64(),
         Some(policy_bytes + snapshot_bytes + need_bytes)
     );
-    assert_eq!(bytes["evaluatedAt"], 64);
+    assert_eq!(bytes["evaluatedAt"], 20);
     assert_eq!(bytes["successfulOutput"], 2 * 1024 * 1024);
 
     let boundary_cases = budgets["byteBoundaryCases"]
@@ -735,8 +735,8 @@ fn policy_core_v2_resource_budgets_match_schema_maxima() {
             "snapshot-over-limit" => ("snapshotInput", snapshot_bytes + 1, "input-invalid"),
             "need-at-limit" => ("needInput", need_bytes, "within-limit"),
             "need-over-limit" => ("needInput", need_bytes + 1, "input-invalid"),
-            "evaluated-at-at-limit" => ("evaluatedAt", 64, "within-limit"),
-            "evaluated-at-over-limit" => ("evaluatedAt", 65, "input-invalid"),
+            "evaluated-at-at-limit" => ("evaluatedAt", 20, "within-limit"),
+            "evaluated-at-over-limit" => ("evaluatedAt", 21, "input-invalid"),
             "output-at-limit" => ("successfulOutput", 2 * 1024 * 1024, "within-limit"),
             "output-over-limit" => ("successfulOutput", 2 * 1024 * 1024 + 1, "input-invalid"),
             other => panic!("unknown boundary id: {other}"),
@@ -759,6 +759,72 @@ fn policy_core_v2_resource_budgets_match_schema_maxima() {
                 "{id}: expected preflight"
             );
         }
+    }
+
+    let golden: Value = serde_json::from_str(include_str!(
+        "../../../contracts/fixtures/policy-core-v2/golden.json"
+    ))
+    .expect("policy-core v2 golden vectors");
+    let boundary_base = golden["cases"]
+        .as_array()
+        .expect("golden cases")
+        .iter()
+        .find(|case| case["id"] == "all-operators-eligible")
+        .expect("boundary base case");
+    for (label, value, limit) in [
+        ("policy", &boundary_base["policy"], policy_bytes),
+        ("snapshot", &boundary_base["snapshot"], snapshot_bytes),
+        ("need", &boundary_base["need"], need_bytes),
+    ] {
+        let mut encoded = serde_json::to_vec(value).expect("boundary JSON");
+        assert!(encoded.len() as u64 <= limit, "{label}: base exceeds limit");
+        encoded.resize(usize::try_from(limit).expect("limit fits usize"), b' ');
+        decode_strict_json(&encoded).unwrap_or_else(|error| panic!("{label}: {error}"));
+        let parsed: Value = serde_json::from_slice(&encoded).expect("padded boundary JSON");
+        assert_eq!(&parsed, value, "{label}: padded JSON changed value");
+    }
+    let canonical_evaluated_at = b"2026-07-16T00:00:00Z";
+    assert_eq!(canonical_evaluated_at.len(), 20);
+    assert!(
+        chrono::NaiveDateTime::parse_from_str(
+            std::str::from_utf8(canonical_evaluated_at).expect("evaluated-at UTF-8"),
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        .is_ok()
+    );
+
+    let output_limit = bytes["successfulOutput"]
+        .as_u64()
+        .expect("output byte limit");
+    for (target_length, expected) in [
+        (output_limit, "within-limit"),
+        (output_limit + 1, "input-invalid"),
+    ] {
+        let mut output = boundary_base["expectedEvaluation"].clone();
+        output["policyId"] = Value::String("urn:libre-ai:policy:a".to_owned());
+        let initial_length = canonical_json(&output).len() as u64;
+        let padding = target_length
+            .checked_sub(initial_length)
+            .expect("output target accommodates base");
+        output["policyId"] = Value::String(format!(
+            "urn:libre-ai:policy:a{}",
+            "a".repeat(usize::try_from(padding).expect("padding fits usize"))
+        ));
+        let evaluation_digest = digest(
+            "libre-ai.policy-evaluation.v2",
+            without(&output, &["id", "digest"]),
+            None,
+        );
+        output["id"] = Value::String(format!("urn:libre-ai:evaluation:{evaluation_digest}"));
+        output["digest"] = Value::String(evaluation_digest);
+        let output_bytes = canonical_json(&output);
+        assert_eq!(output_bytes.len() as u64, target_length);
+        let actual = if output_bytes.len() as u64 > output_limit {
+            "input-invalid"
+        } else {
+            "within-limit"
+        };
+        assert_eq!(actual, expected);
     }
 
     let maximum_depth = budgets["decoderQualification"]["maximumJsonDepth"]
