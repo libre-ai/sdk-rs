@@ -46,10 +46,10 @@ fn mutate(input: &Value, mutation: &Value) -> Value {
 #[test]
 fn every_schema_compiles_and_every_fixture_matches_in_both_directions() {
     let registry = ContractRegistry::embedded().expect("canonical schemas must compile");
-    assert_eq!(registry.schema_names().count(), 30);
+    assert_eq!(registry.schema_names().count(), 31);
     assert_eq!(
         libre_ai_contract_types::generated::GENERATED_TYPE_SCHEMA_NAMES.len(),
-        29
+        30
     );
 
     let fixtures: Value = serde_json::from_str(include_str!(
@@ -57,7 +57,7 @@ fn every_schema_compiles_and_every_fixture_matches_in_both_directions() {
     ))
     .expect("fixture document");
     let cases = fixtures["cases"].as_array().expect("fixture cases");
-    assert_eq!(cases.len(), 29);
+    assert_eq!(cases.len(), 30);
 
     for case in cases {
         let schema_name = case["schema"].as_str().expect("schema name");
