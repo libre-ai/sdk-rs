@@ -322,14 +322,16 @@ fn policy_core_raw_inputs_are_rejected_before_schema_validation() {
             other => panic!("unknown raw input defect: {other}"),
         }
 
-        for (major, message) in [
-            ("policy-core-v1", "input does not conform to policy-core-v1"),
-            ("policy-core-v2", "input does not conform to policy-core-v2"),
-        ] {
-            let expected = &case["expectedErrors"][major];
-            assert_eq!(expected["code"], "policy.input_invalid", "{id}: {major}");
-            assert_eq!(expected["message"], message, "{id}: {major}");
-        }
+        let v1_error = &case["expectedErrors"]["policy-core-v1"];
+        assert_eq!(v1_error.as_object().expect("v1 error").len(), 2, "{id}: v1");
+        assert_eq!(v1_error["code"], "policy.input_invalid", "{id}: v1");
+        assert_eq!(
+            v1_error["message"], "input does not conform to policy-core-v1",
+            "{id}: v1"
+        );
+        let v2_error = &case["expectedErrors"]["policy-core-v2"];
+        assert_eq!(v2_error.as_object().expect("v2 error").len(), 1, "{id}: v2");
+        assert_eq!(v2_error["variant"], "input-invalid", "{id}: v2");
     }
 
     assert_eq!(
@@ -499,18 +501,27 @@ fn policy_core_v2_golden_hashes_are_portable_and_enforce_approval_separation() {
     assert_eq!(golden["engineVersion"], "2.0.0");
 
     let cases = golden["cases"].as_array().expect("golden cases");
-    assert_eq!(cases.len(), 18);
+    assert_eq!(cases.len(), 20);
     let mut order_outputs = Vec::new();
+    let mut error_variants = HashSet::new();
     let mut saw_fractional_number = false;
     let mut saw_tenant_mismatch = false;
     let mut saw_invalid_duplicate = false;
     let mut saw_duplicate_rule_id = false;
+    let mut saw_evaluated_at_invalid = false;
+    let mut saw_digest_mismatch = false;
     let mut saw_self_approval = false;
 
     for case in cases {
         let case_id = case["id"].as_str().expect("case id");
+        let error_variant = case
+            .get("expectedError")
+            .map(|error| error["variant"].as_str().expect("WIT error variant"));
+        if let Some(variant) = error_variant {
+            error_variants.insert(variant);
+        }
         if case_id == "duplicate-exact-fact" {
-            assert_eq!(case["expectedError"]["code"], "policy.input_invalid");
+            assert_eq!(error_variant, Some("input-invalid"));
             saw_invalid_duplicate = true;
             continue;
         }
@@ -530,50 +541,77 @@ fn policy_core_v2_golden_hashes_are_portable_and_enforce_approval_separation() {
             policy_subject,
             Some("policy"),
         );
-        assert_eq!(policy["digest"], policy_digest, "{case_id}: policy digest");
-        assert_eq!(
-            policy["approval"]["subjectDigest"], policy_digest,
-            "{case_id}: approval subject digest"
-        );
+        let policy_digest_valid = policy["digest"] == policy_digest
+            && policy["approval"]["subjectDigest"] == policy_digest;
         let self_approval = policy["approval"]["approverId"] == policy["proposedBy"];
+        let policy_rule_ids = policy["rules"]
+            .as_array()
+            .expect("policy rules")
+            .iter()
+            .map(|rule| rule["id"].as_str().expect("rule id"))
+            .collect::<Vec<_>>();
+        let duplicate_rule_id =
+            policy_rule_ids.iter().collect::<HashSet<_>>().len() != policy_rule_ids.len();
+        let tenants_match = policy["tenantId"] == case["snapshot"]["tenantId"]
+            && policy["tenantId"] == case["need"]["tenantId"];
 
         let snapshot = &case["snapshot"];
-        assert_eq!(
-            snapshot["digest"],
-            digest(
+        let snapshot_digest_valid = snapshot["digest"]
+            == digest(
                 "libre-ai.model-snapshot.v2",
                 without(snapshot, &["digest"]),
-                Some("snapshot")
-            ),
-            "{case_id}: snapshot digest"
-        );
+                Some("snapshot"),
+            );
         let need = &case["need"];
-        assert_eq!(
-            need["digest"],
-            digest(
+        let need_digest_valid = need["digest"]
+            == digest(
                 "libre-ai.policy-need.v2",
                 without(need, &["digest"]),
-                Some("need")
-            ),
-            "{case_id}: need digest"
+                Some("need"),
+            );
+        let all_digests_valid = policy_digest_valid && snapshot_digest_valid && need_digest_valid;
+        assert_eq!(
+            all_digests_valid,
+            error_variant != Some("digest-mismatch"),
+            "{case_id}: digest condition"
+        );
+        assert_eq!(
+            duplicate_rule_id,
+            error_variant == Some("rule-id-duplicate"),
+            "{case_id}: duplicate rule condition"
+        );
+        assert_eq!(
+            self_approval,
+            error_variant == Some("approval-invalid"),
+            "{case_id}: approval separation condition"
+        );
+        assert_eq!(
+            tenants_match,
+            error_variant != Some("tenant-mismatch"),
+            "{case_id}: tenant condition"
+        );
+        let evaluated_at_valid = chrono::NaiveDateTime::parse_from_str(
+            case["evaluatedAt"].as_str().expect("evaluatedAt"),
+            "%Y-%m-%dT%H:%M:%SZ",
+        )
+        .is_ok();
+        assert_eq!(
+            evaluated_at_valid,
+            error_variant != Some("evaluated-at-invalid"),
+            "{case_id}: evaluatedAt condition"
         );
 
-        if let Some(error) = case.get("expectedError") {
-            match error["code"].as_str().expect("error code") {
-                "policy.tenant_mismatch" => saw_tenant_mismatch = true,
-                "policy.rule_id_duplicate" => saw_duplicate_rule_id = true,
-                "policy.approval_invalid" => {
-                    assert!(
-                        self_approval,
-                        "approval error must demonstrate self-approval"
-                    );
-                    saw_self_approval = true;
-                }
-                code => panic!("unexpected schema-valid v2 error vector: {code}"),
+        if let Some(variant) = error_variant {
+            match variant {
+                "tenant-mismatch" => saw_tenant_mismatch = true,
+                "rule-id-duplicate" => saw_duplicate_rule_id = true,
+                "evaluated-at-invalid" => saw_evaluated_at_invalid = true,
+                "digest-mismatch" => saw_digest_mismatch = true,
+                "approval-invalid" => saw_self_approval = true,
+                other => panic!("unexpected schema-valid v2 error vector: {other}"),
             }
             continue;
         }
-        assert!(!self_approval, "{case_id}: successful input self-approves");
 
         let evaluation = &case["expectedEvaluation"];
         let evaluation_digest = digest(
@@ -614,7 +652,20 @@ fn policy_core_v2_golden_hashes_are_portable_and_enforce_approval_separation() {
     assert!(saw_tenant_mismatch);
     assert!(saw_invalid_duplicate);
     assert!(saw_duplicate_rule_id);
+    assert!(saw_evaluated_at_invalid);
+    assert!(saw_digest_mismatch);
     assert!(saw_self_approval);
+    assert_eq!(
+        error_variants,
+        HashSet::from([
+            "input-invalid",
+            "evaluated-at-invalid",
+            "rule-id-duplicate",
+            "approval-invalid",
+            "digest-mismatch",
+            "tenant-mismatch",
+        ])
+    );
     assert_eq!(order_outputs.len(), 2);
     assert_eq!(order_outputs[0], order_outputs[1]);
 }
