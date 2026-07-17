@@ -129,11 +129,6 @@ fn project_schema(
                 }
                 let (target_path, fragment) = resolve_reference(current_path, reference)?;
                 let key = format!("{}#{fragment}", target_path.display());
-                if !stack.insert(key.clone()) {
-                    return Err(
-                        format!("recursive schema reference is not projectable: {key}").into(),
-                    );
-                }
                 let target_document = documents.get(&target_path).ok_or_else(|| {
                     format!("unregistered schema reference: {}", target_path.display())
                 })?;
@@ -144,6 +139,16 @@ fn project_schema(
                         .pointer(&fragment)
                         .ok_or_else(|| format!("unknown schema pointer: {key}"))?
                 };
+                if !stack.insert(key.clone()) {
+                    if target.get("$comment").and_then(Value::as_str)
+                        == Some("libre-ai-static-projection-recursion=opaque")
+                    {
+                        return Ok(Value::Bool(true));
+                    }
+                    return Err(
+                        format!("recursive schema reference is not projectable: {key}").into(),
+                    );
+                }
                 let projected = project_schema(target, &target_path, documents, stack)?;
                 stack.remove(&key);
                 return Ok(projected);
