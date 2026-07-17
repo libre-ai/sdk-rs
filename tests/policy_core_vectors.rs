@@ -160,7 +160,11 @@ fn without(value: &Value, keys: &[&str]) -> Value {
     projection
 }
 
-struct StrictJsonSeed;
+#[derive(Clone, Copy)]
+struct StrictJsonSeed {
+    depth: usize,
+    maximum_depth: usize,
+}
 
 impl<'de> DeserializeSeed<'de> for StrictJsonSeed {
     type Value = ();
@@ -169,11 +173,20 @@ impl<'de> DeserializeSeed<'de> for StrictJsonSeed {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_any(StrictJsonVisitor)
+        if self.depth > self.maximum_depth {
+            return Err(D::Error::custom("maximum JSON depth exceeded"));
+        }
+        deserializer.deserialize_any(StrictJsonVisitor {
+            depth: self.depth,
+            maximum_depth: self.maximum_depth,
+        })
     }
 }
 
-struct StrictJsonVisitor;
+struct StrictJsonVisitor {
+    depth: usize,
+    maximum_depth: usize,
+}
 
 impl<'de> Visitor<'de> for StrictJsonVisitor {
     type Value = ();
@@ -225,7 +238,11 @@ impl<'de> Visitor<'de> for StrictJsonVisitor {
     where
         A: SeqAccess<'de>,
     {
-        while sequence.next_element_seed(StrictJsonSeed)?.is_some() {}
+        let nested = StrictJsonSeed {
+            depth: self.depth + 1,
+            maximum_depth: self.maximum_depth,
+        };
+        while sequence.next_element_seed(nested)?.is_some() {}
         Ok(())
     }
 
@@ -234,11 +251,15 @@ impl<'de> Visitor<'de> for StrictJsonVisitor {
         A: MapAccess<'de>,
     {
         let mut keys = HashSet::new();
+        let nested = StrictJsonSeed {
+            depth: self.depth + 1,
+            maximum_depth: self.maximum_depth,
+        };
         while let Some(key) = object.next_key::<String>()? {
             if !keys.insert(key) {
                 return Err(A::Error::custom("duplicate JSON object member"));
             }
-            object.next_value_seed(StrictJsonSeed)?;
+            object.next_value_seed(nested)?;
         }
         Ok(())
     }
@@ -250,9 +271,12 @@ fn decode_strict_json(bytes: &[u8]) -> Result<(), String> {
     }
     let input = std::str::from_utf8(bytes).map_err(|error| error.to_string())?;
     let mut deserializer = serde_json::Deserializer::from_str(input);
-    StrictJsonSeed
-        .deserialize(&mut deserializer)
-        .map_err(|error| error.to_string())?;
+    StrictJsonSeed {
+        depth: 0,
+        maximum_depth: 64,
+    }
+    .deserialize(&mut deserializer)
+    .map_err(|error| error.to_string())?;
     deserializer.end().map_err(|error| error.to_string())
 }
 
@@ -693,8 +717,126 @@ fn policy_core_v2_resource_budgets_match_schema_maxima() {
         bytes["totalJsonInput"].as_u64(),
         Some(policy_bytes + snapshot_bytes + need_bytes)
     );
-    assert_eq!(bytes["evaluatedAt"], 64);
+    assert_eq!(bytes["evaluatedAt"], 20);
     assert_eq!(bytes["successfulOutput"], 2 * 1024 * 1024);
+
+    let boundary_cases = budgets["byteBoundaryCases"]
+        .as_array()
+        .expect("byte boundary cases");
+    assert_eq!(boundary_cases.len(), 10);
+    let mut boundary_ids = HashSet::new();
+    for case in boundary_cases {
+        let id = case["id"].as_str().expect("boundary id");
+        assert!(boundary_ids.insert(id), "duplicate boundary id: {id}");
+        let (target, limit, expected) = match id {
+            "policy-at-limit" => ("policyInput", policy_bytes, "within-limit"),
+            "policy-over-limit" => ("policyInput", policy_bytes + 1, "input-invalid"),
+            "snapshot-at-limit" => ("snapshotInput", snapshot_bytes, "within-limit"),
+            "snapshot-over-limit" => ("snapshotInput", snapshot_bytes + 1, "input-invalid"),
+            "need-at-limit" => ("needInput", need_bytes, "within-limit"),
+            "need-over-limit" => ("needInput", need_bytes + 1, "input-invalid"),
+            "evaluated-at-at-limit" => ("evaluatedAt", 20, "within-limit"),
+            "evaluated-at-over-limit" => ("evaluatedAt", 21, "input-invalid"),
+            "output-at-limit" => ("successfulOutput", 2 * 1024 * 1024, "within-limit"),
+            "output-over-limit" => ("successfulOutput", 2 * 1024 * 1024 + 1, "input-invalid"),
+            other => panic!("unknown boundary id: {other}"),
+        };
+        assert_eq!(case["target"], target, "{id}: target");
+        assert_eq!(case["byteLength"], limit, "{id}: byte length");
+        let generated = vec![0_u8; usize::try_from(limit).expect("boundary fits usize")];
+        let target_limit = bytes[target].as_u64().expect("target byte limit");
+        let actual = if generated.len() as u64 > target_limit {
+            "input-invalid"
+        } else {
+            "within-limit"
+        };
+        assert_eq!(actual, expected, "{id}: preflight");
+        if expected == "input-invalid" {
+            assert_eq!(case["expectedError"], expected, "{id}: expected error");
+        } else {
+            assert_eq!(
+                case["expectedPreflight"], expected,
+                "{id}: expected preflight"
+            );
+        }
+    }
+
+    let golden: Value = serde_json::from_str(include_str!(
+        "../../../contracts/fixtures/policy-core-v2/golden.json"
+    ))
+    .expect("policy-core v2 golden vectors");
+    let boundary_base = golden["cases"]
+        .as_array()
+        .expect("golden cases")
+        .iter()
+        .find(|case| case["id"] == "all-operators-eligible")
+        .expect("boundary base case");
+    for (label, value, limit) in [
+        ("policy", &boundary_base["policy"], policy_bytes),
+        ("snapshot", &boundary_base["snapshot"], snapshot_bytes),
+        ("need", &boundary_base["need"], need_bytes),
+    ] {
+        let mut encoded = serde_json::to_vec(value).expect("boundary JSON");
+        assert!(encoded.len() as u64 <= limit, "{label}: base exceeds limit");
+        encoded.resize(usize::try_from(limit).expect("limit fits usize"), b' ');
+        decode_strict_json(&encoded).unwrap_or_else(|error| panic!("{label}: {error}"));
+        let parsed: Value = serde_json::from_slice(&encoded).expect("padded boundary JSON");
+        assert_eq!(&parsed, value, "{label}: padded JSON changed value");
+    }
+    let canonical_evaluated_at = b"2026-07-16T00:00:00Z";
+    assert_eq!(canonical_evaluated_at.len(), 20);
+    assert!(
+        chrono::NaiveDateTime::parse_from_str(
+            std::str::from_utf8(canonical_evaluated_at).expect("evaluated-at UTF-8"),
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        .is_ok()
+    );
+
+    let output_limit = bytes["successfulOutput"]
+        .as_u64()
+        .expect("output byte limit");
+    for (target_length, expected) in [
+        (output_limit, "within-limit"),
+        (output_limit + 1, "input-invalid"),
+    ] {
+        let mut output = boundary_base["expectedEvaluation"].clone();
+        output["policyId"] = Value::String("urn:libre-ai:policy:a".to_owned());
+        let initial_length = canonical_json(&output).len() as u64;
+        let padding = target_length
+            .checked_sub(initial_length)
+            .expect("output target accommodates base");
+        output["policyId"] = Value::String(format!(
+            "urn:libre-ai:policy:a{}",
+            "a".repeat(usize::try_from(padding).expect("padding fits usize"))
+        ));
+        let evaluation_digest = digest(
+            "libre-ai.policy-evaluation.v2",
+            without(&output, &["id", "digest"]),
+            None,
+        );
+        output["id"] = Value::String(format!("urn:libre-ai:evaluation:{evaluation_digest}"));
+        output["digest"] = Value::String(evaluation_digest);
+        let output_bytes = canonical_json(&output);
+        assert_eq!(output_bytes.len() as u64, target_length);
+        let actual = if output_bytes.len() as u64 > output_limit {
+            "input-invalid"
+        } else {
+            "within-limit"
+        };
+        assert_eq!(actual, expected);
+    }
+
+    let maximum_depth = budgets["decoderQualification"]["maximumJsonDepth"]
+        .as_u64()
+        .expect("maximum JSON depth");
+    assert_eq!(maximum_depth, 64);
+    let nested_json =
+        |depth: usize| format!("{}0{}", "[".repeat(depth), "]".repeat(depth)).into_bytes();
+    decode_strict_json(&nested_json(maximum_depth as usize)).expect("exact JSON depth");
+    let depth_error = decode_strict_json(&nested_json(maximum_depth as usize + 1))
+        .expect_err("excessive JSON depth accepted");
+    assert!(depth_error.contains("maximum JSON depth exceeded"));
 
     let cardinality = &budgets["cardinalityLimits"];
     let rules = cardinality["rules"].as_u64().expect("rules");
