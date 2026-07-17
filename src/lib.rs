@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+pub mod event_chain;
+pub mod quorum;
+
 use jsonschema::{Draft, Registry, Validator};
 use serde_json::Value;
 use std::collections::BTreeMap;
