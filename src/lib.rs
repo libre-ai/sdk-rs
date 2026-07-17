@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod event_chain;
 pub mod quorum;
 
 use jsonschema::{Draft, Registry, Validator};
