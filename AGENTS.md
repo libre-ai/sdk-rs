@@ -10,5 +10,9 @@ The governance gate template is consumed as pinned reusable workflows and
 a pinned tooling git-dep. Consumers install this crate as a sha-pinned
 Cargo git-dep ([sources.allow-org] github = ["libre-ai"]).
 
-Run `bun run check` and `cargo test` before pushing; never hide a red
+The repository's tests are Rust and OWNED by the rust-quality CI job
+(cargo test --locked after bun install); the bun chain deliberately does
+not run them — « the chain is green » proves the gates, « rust-quality is
+green » proves the tests (K4 SDKRS-02). Run `bun run check` and
+`cargo test --locked` before pushing; never hide a red
 test. Security > quality > performance > completeness.

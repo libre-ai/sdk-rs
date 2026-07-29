@@ -26,8 +26,8 @@
     "check:personal-data": "bun run check:bun:runtime && bun node_modules/@libre-ai/governance/tools/quality/check-personal-data-boundary.ts",
     "lint": "bun run check:bun:runtime && biome ci .",
     "typecheck": "bun run check:bun:runtime && tsc --noEmit -p tsconfig.json",
-    "pretest": "bun run check:bun",
     "test": "cargo test --locked",
-    "check": "bun run check:bun && bun run check:toolchain && bun run check:schemas && bun run check:secret-scan && bun run check:personal-data && bun run lint && bun run typecheck && bun run test"
+    "check": "bun run check:bun && bun run check:toolchain && bun run check:schemas && bun run check:secret-scan && bun run check:personal-data && bun run lint && bun run typecheck",
+    "pretest": "bun run check:bun"
   }
 }
