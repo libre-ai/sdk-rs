@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/radar-normalized-feed.v1.schema.json",
+  "title": "Libre AI Radar Normalized Feed v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "sourceId", "baseUrl", "format", "title", "homeUrl", "items"],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.radar-normalized-feed.v1" },
+    "sourceId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "baseUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https?://",
+      "maxLength": 2048
+    },
+    "format": { "enum": ["rss-2.0", "atom-1.0", "json-feed-1", "json-feed-1.1"] },
+    "title": { "type": "string", "maxLength": 1000 },
+    "homeUrl": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://",
+          "maxLength": 2048
+        }
+      ]
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": { "$ref": "radar-normalized-item.v1.schema.json" }
+    }
+  }
+}

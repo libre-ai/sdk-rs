@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/public-vote-dataset.v2.schema.json",
+  "title": "Libre AI Public Vote Dataset v2",
+  "$defs": {
+    "reviewApproval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "actorKind",
+        "reviewerId",
+        "professionalCapacity",
+        "approvedAt",
+        "reference",
+        "subjectDigest",
+        "attestation"
+      ],
+      "properties": {
+        "role": {
+          "enum": ["methodological-review", "legal-privacy-review"]
+        },
+        "actorKind": {
+          "const": "human"
+        },
+        "reviewerId": {
+          "type": "string",
+          "pattern": "^rev_[a-z0-9]{16,64}$"
+        },
+        "professionalCapacity": {
+          "enum": ["methodology-expert", "privacy-legal-expert"]
+        },
+        "approvedAt": {
+          "$ref": "common.v1.schema.json#/$defs/timestamp"
+        },
+        "reference": {
+          "$ref": "common.v1.schema.json#/$defs/urn"
+        },
+        "subjectDigest": {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        },
+        "attestation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["uri", "digest", "publicationBasis", "identityBoundary"],
+          "properties": {
+            "uri": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 2048,
+              "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~/-]*)?$"
+            },
+            "digest": {
+              "$ref": "common.v1.schema.json#/$defs/sha256"
+            },
+            "publicationBasis": {
+              "const": "explicit-publication-consent"
+            },
+            "identityBoundary": {
+              "const": "professional-attestation-only"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "methodological-review"
+              }
+            },
+            "required": ["role"]
+          },
+          "then": {
+            "properties": {
+              "professionalCapacity": {
+                "const": "methodology-expert"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "legal-privacy-review"
+              }
+            },
+            "required": ["role"]
+          },
+          "then": {
+            "properties": {
+              "professionalCapacity": {
+                "const": "privacy-legal-expert"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "publicAggregateSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uri", "retrievedAt", "digest", "licence"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048,
+          "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~/-]*)?$"
+        },
+        "retrievedAt": {
+          "$ref": "common.v1.schema.json#/$defs/timestamp"
+        },
+        "digest": {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        },
+        "licence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "scope",
+    "methodId",
+    "methodDigest",
+    "publicationPolicy",
+    "statements",
+    "publishedAt",
+    "digest",
+    "approvals"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "libre-ai.public-vote-dataset.v2"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^urn:libre-ai:dataset:[A-Za-z0-9._~-]+$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "methodId": {
+      "type": "string",
+      "pattern": "^urn:libre-ai:method:[A-Za-z0-9._~-]+$"
+    },
+    "methodDigest": {
+      "$ref": "common.v1.schema.json#/$defs/sha256"
+    },
+    "statements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "subjectKind",
+          "personTargeting",
+          "wording",
+          "source",
+          "votesFor",
+          "votesAgainst",
+          "abstentions",
+          "absent"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "common.v1.schema.json#/$defs/identifier"
+          },
+          "subjectKind": {
+            "const": "public-policy-proposal"
+          },
+          "personTargeting": {
+            "const": "prohibited"
+          },
+          "wording": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "source": {
+            "$ref": "#/$defs/publicAggregateSource"
+          },
+          "votesFor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "votesAgainst": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "abstentions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "absent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        }
+      }
+    },
+    "publishedAt": {
+      "$ref": "common.v1.schema.json#/$defs/timestamp"
+    },
+    "digest": {
+      "$ref": "common.v1.schema.json#/$defs/sha256"
+    },
+    "approvals": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "methodological-review"
+              }
+            },
+            "required": ["role"]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "legal-privacy-review"
+              }
+            },
+            "required": ["role"]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ],
+      "items": {
+        "$ref": "#/$defs/reviewApproval"
+      }
+    },
+    "publicationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceMode",
+        "minimumGroupSize",
+        "smallGroupAction",
+        "identityExposure",
+        "publicationReviewExpiresAt"
+      ],
+      "properties": {
+        "sourceMode": {
+          "enum": ["aggregate-only", "public-roll-call-aggregated"]
+        },
+        "minimumGroupSize": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 4294967295
+        },
+        "smallGroupAction": {
+          "const": "exclude-statement"
+        },
+        "identityExposure": {
+          "const": "prohibited"
+        },
+        "publicationReviewExpiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$"
+        }
+      }
+    }
+  }
+}

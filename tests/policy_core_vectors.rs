@@ -293,7 +293,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 #[test]
 fn policy_core_raw_inputs_are_rejected_before_schema_validation() {
     let manifest: Value = serde_json::from_str(include_str!(
-        "../../../contracts/fixtures/policy-core-invalid-json/manifest.json"
+        "../node_modules/@libre-ai/contracts-authority/contracts/fixtures/policy-core-invalid-json/manifest.json"
     ))
     .expect("policy-core raw input manifest");
     assert_eq!(
@@ -302,8 +302,9 @@ fn policy_core_raw_inputs_are_rejected_before_schema_validation() {
     );
     let cases = manifest["cases"].as_array().expect("raw input cases");
     assert_eq!(cases.len(), 9);
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../contracts/fixtures/policy-core-invalid-json");
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+        "node_modules/@libre-ai/contracts-authority/contracts/fixtures/policy-core-invalid-json",
+    );
     let mut ids = HashSet::new();
     let mut defects = HashSet::new();
 
@@ -394,7 +395,7 @@ fn rust_test_canonicalizer_matches_rfc_8785_number_rendering() {
 #[test]
 fn policy_core_golden_hashes_are_portable_and_order_stable() {
     let golden: Value = serde_json::from_str(include_str!(
-        "../../../contracts/fixtures/policy-core-v1/golden.json"
+        "../node_modules/@libre-ai/contracts-authority/contracts/fixtures/policy-core-v1/golden.json"
     ))
     .expect("policy-core golden vectors");
     assert_eq!(
@@ -515,7 +516,7 @@ fn policy_core_golden_hashes_are_portable_and_order_stable() {
 #[test]
 fn policy_core_v2_golden_hashes_are_portable_and_enforce_approval_separation() {
     let golden: Value = serde_json::from_str(include_str!(
-        "../../../contracts/fixtures/policy-core-v2/golden.json"
+        "../node_modules/@libre-ai/contracts-authority/contracts/fixtures/policy-core-v2/golden.json"
     ))
     .expect("policy-core v2 golden vectors");
     assert_eq!(
@@ -697,7 +698,7 @@ fn policy_core_v2_golden_hashes_are_portable_and_enforce_approval_separation() {
 #[test]
 fn policy_core_v2_resource_budgets_match_schema_maxima() {
     let budgets: Value = serde_json::from_str(include_str!(
-        "../../../contracts/fixtures/policy-core-v2/resource-budgets.v1.json"
+        "../node_modules/@libre-ai/contracts-authority/contracts/fixtures/policy-core-v2/resource-budgets.v1.json"
     ))
     .expect("policy-core v2 resource budgets");
     assert_eq!(
@@ -762,7 +763,7 @@ fn policy_core_v2_resource_budgets_match_schema_maxima() {
     }
 
     let golden: Value = serde_json::from_str(include_str!(
-        "../../../contracts/fixtures/policy-core-v2/golden.json"
+        "../node_modules/@libre-ai/contracts-authority/contracts/fixtures/policy-core-v2/golden.json"
     ))
     .expect("policy-core v2 golden vectors");
     let boundary_base = golden["cases"]
@@ -845,18 +846,15 @@ fn policy_core_v2_resource_budgets_match_schema_maxima() {
     let set_members = cardinality["setMembersPerRule"]
         .as_u64()
         .expect("set members");
-    let policy_schema: Value = serde_json::from_str(include_str!(
-        "../../../contracts/schemas/policy-definition.v2.schema.json"
-    ))
-    .expect("policy schema");
-    let snapshot_schema: Value = serde_json::from_str(include_str!(
-        "../../../contracts/schemas/model-snapshot.v2.schema.json"
-    ))
-    .expect("snapshot schema");
-    let need_schema: Value = serde_json::from_str(include_str!(
-        "../../../contracts/schemas/policy-need.v2.schema.json"
-    ))
-    .expect("need schema");
+    let policy_schema: Value =
+        serde_json::from_str(include_str!("../schemas/policy-definition.v2.schema.json"))
+            .expect("policy schema");
+    let snapshot_schema: Value =
+        serde_json::from_str(include_str!("../schemas/model-snapshot.v2.schema.json"))
+            .expect("snapshot schema");
+    let need_schema: Value =
+        serde_json::from_str(include_str!("../schemas/policy-need.v2.schema.json"))
+            .expect("need schema");
     assert_eq!(policy_schema["properties"]["rules"]["maxItems"], rules);
     assert_eq!(
         snapshot_schema["properties"]["facts"]["maxItems"],
@@ -897,7 +895,7 @@ fn policy_core_v2_resource_budgets_match_schema_maxima() {
 #[test]
 fn policy_core_operator_fixture_covers_the_closed_matrix() {
     let operators: Value = serde_json::from_str(include_str!(
-        "../../../contracts/fixtures/policy-core-v1/operators.json"
+        "../node_modules/@libre-ai/contracts-authority/contracts/fixtures/policy-core-v1/operators.json"
     ))
     .expect("policy-core operator vectors");
     assert_eq!(
@@ -921,7 +919,7 @@ fn policy_core_operator_fixture_covers_the_closed_matrix() {
     );
 
     let operators_v2: Value = serde_json::from_str(include_str!(
-        "../../../contracts/fixtures/policy-core-v2/operators.json"
+        "../node_modules/@libre-ai/contracts-authority/contracts/fixtures/policy-core-v2/operators.json"
     ))
     .expect("policy-core v2 operator vectors");
     assert_eq!(

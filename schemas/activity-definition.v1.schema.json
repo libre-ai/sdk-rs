@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/activity-definition.v1.schema.json",
+  "title": "Libre AI Activity Definition v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "status",
+    "title",
+    "objective",
+    "sources",
+    "responseSchema",
+    "feedbackRules",
+    "generatedContent"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.activity-definition.v1" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "status": { "enum": ["draft", "reviewed", "published", "withdrawn"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "objective": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": { "$ref": "common.v1.schema.json#/$defs/sourceReference" }
+    },
+    "responseSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["string", "number", "integer", "boolean", "choice", "multi-choice"] },
+        "minLength": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "maxLength": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "feedbackRules": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "explanation", "sourceIndexes"],
+        "properties": {
+          "id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+          "explanation": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "sourceIndexes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "uniqueItems": true,
+            "items": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "generatedContent": { "type": "boolean" },
+    "approvals": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": { "$ref": "common.v1.schema.json#/$defs/approvalReference" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": { "status": { "enum": ["reviewed", "published", "withdrawn"] } },
+        "required": ["status"]
+      },
+      "then": {
+        "type": "object",
+        "properties": { "approvals": true },
+        "required": ["approvals"]
+      }
+    }
+  ]
+}

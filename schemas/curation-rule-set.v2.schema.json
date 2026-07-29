@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/curation-rule-set.v2.schema.json",
+  "title": "Libre AI Curation Rule Set v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "tenantId", "version", "status", "rules", "createdAt"],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.curation-rule-set.v2" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "tenantId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "status": { "enum": ["draft", "active", "retired"] },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "field", "operator", "value", "decision", "explanation"],
+        "properties": {
+          "id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+          "field": { "enum": ["title", "summary", "author", "tags", "publishedAt", "sourceHost"] },
+          "operator": { "enum": ["equals", "contains", "prefix", "after", "before"] },
+          "value": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "decision": { "enum": ["retain", "reject"] },
+          "explanation": { "type": "string", "minLength": 1, "maxLength": 500 }
+        },
+        "allOf": [
+          {
+            "if": {
+              "type": "object",
+              "properties": { "field": { "const": "publishedAt" } },
+              "required": ["field"]
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "operator": { "enum": ["after", "before"] },
+                "value": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+                }
+              }
+            },
+            "else": {
+              "type": "object",
+              "properties": { "operator": { "enum": ["equals", "contains", "prefix"] } }
+            }
+          },
+          {
+            "if": {
+              "type": "object",
+              "properties": { "field": { "const": "sourceHost" } },
+              "required": ["field"]
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "maxLength": 255,
+                  "pattern": "^(?:[a-z0-9](?:[a-z0-9.-]{0,253}[a-z0-9])?|\\[[0-9a-f:.]+\\])$"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "createdAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" }
+  }
+}

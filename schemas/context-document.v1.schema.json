@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/context-document.v1.schema.json",
+  "title": "Libre AI Context Document v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "createdAt",
+    "rootBlockIds",
+    "blocks",
+    "totalBytes",
+    "digest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.context-document.v1" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "createdAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "rootBlockIds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+    },
+    "blocks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "revision", "mediaType", "content", "links"],
+        "properties": {
+          "id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+          "revision": { "type": "integer", "minimum": 1 },
+          "mediaType": { "enum": ["text/plain", "text/markdown", "application/json"] },
+          "content": { "type": "string", "maxLength": 262144 },
+          "links": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 1000,
+            "items": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+          }
+        }
+      }
+    },
+    "totalBytes": { "type": "integer", "minimum": 0, "maximum": 104857600 },
+    "excludedBlockIds": {
+      "type": "array",
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+    },
+    "digest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+  }
+}

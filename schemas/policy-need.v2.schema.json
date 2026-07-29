@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/policy-need.v2.schema.json",
+  "title": "Libre AI Policy Need v2",
+  "$defs": {
+    "factScalar": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+~-]{0,255}$"
+        },
+        {
+          "type": "number",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        { "type": "boolean" }
+      ]
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "tenantId", "facts", "digest"],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.policy-need.v2" },
+    "id": {
+      "type": "string",
+      "pattern": "^urn:libre-ai:need:[A-Za-z0-9._~-]+$"
+    },
+    "tenantId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "facts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "value"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^need\\.[a-z][a-z0-9_.-]+$"
+          },
+          "value": { "$ref": "#/$defs/factScalar" }
+        }
+      }
+    },
+    "digest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+  }
+}

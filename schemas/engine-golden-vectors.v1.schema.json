@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/engine-golden-vectors.v1.schema.json",
+  "title": "Libre AI Specialized Engine Golden Vector Index v1",
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 20,
+  "required": ["schemaVersion"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^libre-ai\\.[a-z][a-z0-9.-]*golden[a-z0-9.-]*\\.v[0-9]+$",
+      "maxLength": 128
+    },
+    "world": { "type": "string", "pattern": "^[a-z][a-z0-9-]*-v[0-9]+$", "maxLength": 128 },
+    "status": { "$ref": "#/$defs/shortMetadataString" },
+    "semantics": { "$ref": "#/$defs/contractPath" },
+    "engineVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "maxLength": 64
+    },
+    "digestAlgorithm": { "$ref": "#/$defs/shortMetadataString" },
+    "canonicalization": { "$ref": "#/$defs/shortMetadataString" },
+    "testMaterialWarning": {
+      "allOf": [{ "$ref": "#/$defs/metadataString" }, { "type": "string", "maxLength": 1000 }]
+    },
+    "contractFiles": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/contractFile" }
+    },
+    "parseCases": { "$ref": "#/$defs/vectorList" },
+    "evaluationCases": { "$ref": "#/$defs/vectorList" },
+    "cases": { "$ref": "#/$defs/vectorList" },
+    "vectors": { "$ref": "#/$defs/vectorList" },
+    "aggregationVectors": { "$ref": "#/$defs/vectorList" },
+    "invalidPolicyVectors": { "$ref": "#/$defs/vectorList" },
+    "golden": { "$ref": "#/$defs/payloadValue" },
+    "mutations": { "$ref": "#/$defs/vectorList" },
+    "standards": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/metadataString" }
+    },
+    "reproductionEvidence": { "$ref": "#/$defs/metadataValue" },
+    "contextCanonicalization": { "$ref": "#/$defs/payloadValue" },
+    "recoverySecretCodeProfile": { "$ref": "#/$defs/payloadValue" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "schemaVersion": { "const": "libre-ai.engine-golden-vectors.v1" } },
+        "required": ["schemaVersion"]
+      },
+      "then": {
+        "required": ["world", "status", "cases"],
+        "properties": {
+          "world": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*-v[0-9]+$",
+            "maxLength": 128
+          },
+          "status": { "$ref": "#/$defs/shortMetadataString" },
+          "cases": { "$ref": "#/$defs/vectorList" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "shortMetadataString": {
+      "allOf": [{ "$ref": "#/$defs/metadataString" }, { "type": "string", "maxLength": 128 }]
+    },
+    "metadataString": {
+      "$comment": "ASCII-only metadata makes the file/traversal and credential exclusions closed under Unicode normalization; engine payload strings remain Unicode-capable and opaque.",
+      "type": "string",
+      "maxLength": 65536,
+      "pattern": "^[\\t\\n\\r\\x20-\\x7E]*$",
+      "allOf": [
+        {
+          "not": {
+            "pattern": "[\\s\\S]*(?:sk_live_[A-Za-z0-9_-]{8,}|sk-(?:proj|svcacct)-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN (?:(?:(?:RSA|DSA|EC|OPENSSH|ENCRYPTED) )?PRIVATE KEY|PGP PRIVATE KEY BLOCK)-----)[\\s\\S]*"
+          }
+        },
+        { "not": { "pattern": "[@＠﹫%％﹪&＆﹠]" } },
+        { "not": { "pattern": "(?:[Ff][Ii][Ll][Ee]:|\\.\\.[/\\\\])" } }
+      ]
+    },
+    "payloadString": { "type": "string", "maxLength": 65536 },
+    "metadataPropertyName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_$][A-Za-z0-9_$.-]{0,127}$",
+      "not": {
+        "pattern": "(?:sk_live_[A-Za-z0-9_-]{8,}|sk-(?:proj|svcacct)-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})"
+      }
+    },
+    "payloadPropertyName": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "contractPath": {
+      "type": "string",
+      "minLength": 11,
+      "maxLength": 512,
+      "pattern": "^contracts/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*))*$"
+    },
+    "contractFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/contractPath" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "vectorList": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": { "$ref": "#/$defs/payloadValue" }
+    },
+    "metadataValue": {
+      "$comment": "libre-ai-static-projection-recursion=opaque",
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "$ref": "#/$defs/metadataString" },
+        {
+          "type": "array",
+          "maxItems": 4096,
+          "items": { "$ref": "#/$defs/metadataValue" }
+        },
+        {
+          "type": "object",
+          "maxProperties": 512,
+          "propertyNames": { "$ref": "#/$defs/metadataPropertyName" },
+          "additionalProperties": { "$ref": "#/$defs/metadataValue" }
+        }
+      ]
+    },
+    "payloadValue": {
+      "$comment": "libre-ai-static-projection-recursion=opaque",
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "$ref": "#/$defs/payloadString" },
+        {
+          "type": "array",
+          "maxItems": 4096,
+          "items": { "$ref": "#/$defs/payloadValue" }
+        },
+        {
+          "type": "object",
+          "maxProperties": 512,
+          "propertyNames": { "$ref": "#/$defs/payloadPropertyName" },
+          "additionalProperties": { "$ref": "#/$defs/payloadValue" }
+        }
+      ]
+    }
+  }
+}

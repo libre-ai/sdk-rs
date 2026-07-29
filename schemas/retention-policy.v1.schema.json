@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/retention-policy.v1.schema.json",
+  "title": "Libre AI Retention Policy v1",
+  "$defs": {
+    "duration": { "type": "string", "pattern": "^P[1-9][0-9]*[DY]$" },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "owner", "dataClass", "location", "mode", "trigger"],
+      "properties": {
+        "id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+        "owner": {
+          "enum": [
+            "practices",
+            "radar",
+            "notebook",
+            "sessions",
+            "model-policy",
+            "boussole",
+            "specifications",
+            "missions",
+            "auth-web",
+            "operations",
+            "proof-artifact",
+            "backup"
+          ]
+        },
+        "dataClass": { "type": "string", "pattern": "^[a-z][a-z0-9.-]{2,127}$" },
+        "location": {
+          "enum": ["memory", "local", "postgresql", "redis", "cellar", "logs", "backup"]
+        },
+        "mode": { "enum": ["immediate", "fixed", "until-delete", "while-referenced"] },
+        "trigger": {
+          "enum": [
+            "normalization",
+            "failure",
+            "creation",
+            "last-seen",
+            "expiry",
+            "explicit-delete",
+            "reference-release"
+          ]
+        },
+        "defaultRetention": { "$ref": "#/$defs/duration" },
+        "postReferenceRetention": { "$ref": "#/$defs/duration" },
+        "maximumActiveHours": { "type": "integer", "minimum": 1, "maximum": 24 },
+        "configurable": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minimum": { "$ref": "#/$defs/duration" },
+            "maximum": { "$ref": "#/$defs/duration" }
+          },
+          "minProperties": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "mode": { "const": "fixed" } },
+            "required": ["mode"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "defaultRetention": true },
+            "required": ["defaultRetention"]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "mode": { "enum": ["immediate", "until-delete"] } },
+            "required": ["mode"]
+          },
+          "then": {
+            "type": "object",
+            "not": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": { "defaultRetention": true },
+                  "required": ["defaultRetention"]
+                },
+                {
+                  "type": "object",
+                  "properties": { "postReferenceRetention": true },
+                  "required": ["postReferenceRetention"]
+                },
+                {
+                  "type": "object",
+                  "properties": { "configurable": true },
+                  "required": ["configurable"]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "authority", "approvedAt", "backupExpiry", "rules"],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.retention-policy.v1" },
+    "authority": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "approvedAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "backupExpiry": { "const": "P35D" },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/rule" }
+    }
+  }
+}

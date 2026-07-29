@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/curation-rule-set.v1.schema.json",
+  "title": "Libre AI Curation Rule Set v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "tenantId", "version", "status", "rules", "createdAt"],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.curation-rule-set.v1" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "tenantId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "version": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["draft", "active", "retired"] },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "field", "operator", "value", "decision", "explanation"],
+        "properties": {
+          "id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+          "field": { "enum": ["title", "summary", "author", "tags", "publishedAt", "sourceHost"] },
+          "operator": { "enum": ["equals", "contains", "prefix", "after", "before"] },
+          "value": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "decision": { "enum": ["retain", "reject"] },
+          "explanation": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "createdAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" }
+  }
+}

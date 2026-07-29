@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/work-package-plan.v1.schema.json",
+  "title": "Libre AI Work Package Plan v1",
+  "$defs": {
+    "path": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\\\)[A-Za-z0-9._*/-]+$",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "phase",
+        "name",
+        "objective",
+        "owners",
+        "integrator",
+        "writePaths",
+        "readAuthorities",
+        "dependsOn",
+        "parallelGroup",
+        "risk",
+        "humanGates",
+        "acceptance",
+        "definitionStatus"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^WP-G[2-5]-[A-Z][0-9]{2}$" },
+        "phase": { "enum": ["G2", "G3", "G4", "G5"] },
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "objective": { "type": "string", "minLength": 20, "maxLength": 1000 },
+        "owners": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" }
+        },
+        "integrator": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+        "writePaths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/path" }
+        },
+        "readAuthorities": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/path" }
+        },
+        "dependsOn": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^WP-G[2-5]-[A-Z][0-9]{2}$" }
+        },
+        "parallelGroup": { "type": "string", "pattern": "^g[2-5]-[0-9]+$" },
+        "risk": { "enum": ["medium", "high", "critical"] },
+        "humanGates": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,127}$" }
+        },
+        "acceptance": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 30,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 10, "maxLength": 500 }
+        },
+        "definitionStatus": { "const": "locked" }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "authority", "globalConstraints", "packages"],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.work-package-plan.v1" },
+    "authority": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "globalConstraints": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 30,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 10, "maxLength": 500 }
+    },
+    "packages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/package" }
+    }
+  }
+}

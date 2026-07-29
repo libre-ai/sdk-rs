@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/orchestrator-event.v1.schema.json",
+  "title": "Libre AI Orchestrator Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "tenantId",
+    "missionId",
+    "orchestratorId",
+    "sequence",
+    "type",
+    "occurredAt",
+    "data"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.orchestrator-event.v1" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "tenantId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "missionId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "orchestratorId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "type": {
+      "enum": [
+        "started",
+        "progressed",
+        "blocked",
+        "decision-requested",
+        "paused",
+        "resumed",
+        "budget-exceeded",
+        "cancelled",
+        "result-submitted",
+        "failed"
+      ]
+    },
+    "occurredAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reasonCode": { "type": "string", "pattern": "^orchestrator\\.[a-z0-9_.-]+$" },
+        "progressPermille": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "decisionRequestId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+        "artifact": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+        "evidence": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "result-submitted" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": { "artifact": true, "evidence": true },
+            "required": ["artifact", "evidence"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "decision-requested" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": { "decisionRequestId": true },
+            "required": ["decisionRequestId"]
+          }
+        }
+      }
+    }
+  ]
+}

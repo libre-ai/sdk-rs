@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/practice-progress-export.v1.schema.json",
+  "title": "Libre AI Practice Progress Export v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "exportedAt", "outcomes"],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.practice-progress-export.v1" },
+    "exportedAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "outcomes": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": { "$ref": "activity-outcome.v1.schema.json" }
+    }
+  }
+}

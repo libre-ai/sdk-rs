@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/activity-outcome.v1.schema.json",
+  "title": "Libre AI Activity Outcome v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "activityId",
+    "activityVersion",
+    "localSessionId",
+    "state",
+    "responseDigest",
+    "feedbackRuleIds",
+    "recordedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.activity-outcome.v1" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "activityId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "activityVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "localSessionId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "state": { "enum": ["in-progress", "completed", "stopped"] },
+    "responseDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "feedbackRuleIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 100,
+      "items": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+    },
+    "recordedAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" }
+  }
+}

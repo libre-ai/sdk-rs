@@ -72,7 +72,7 @@ fn collision(mode: &str, current: &OrchestratorCausalEventFacts) -> Option<Accep
 fn rust_projection_matches_event_chain_vectors() {
     let document = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../contracts/fixtures/agent-orchestration-v1/event-chain-vectors.v1.json"
+        "/node_modules/@libre-ai/contracts-authority/contracts/fixtures/agent-orchestration-v1/event-chain-vectors.v1.json"
     ));
     let vectors: Vectors = serde_json::from_str(document).expect("event-chain vectors must parse");
 

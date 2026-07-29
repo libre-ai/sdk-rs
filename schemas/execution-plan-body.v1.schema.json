@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/execution-plan-body.v1.schema.json",
+  "title": "Libre AI ExecutionPlanBody v1",
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[A-Za-z0-9._@*+-]+(?:/[A-Za-z0-9._@*+-]+)*$",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "host", "port"],
+      "properties": {
+        "scheme": { "const": "https" },
+        "host": {
+          "type": "string",
+          "pattern": "^(?=.{1,253}$)(?!localhost$)(?!.*\\.localhost$)(?!.*\\.local$)(?![0-9.]+$)(?!-)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+        },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "tenantId",
+    "missionId",
+    "handoffId",
+    "handoffDigest",
+    "specPackageDigest",
+    "acceptanceCriteria",
+    "tools",
+    "filesystem",
+    "budgets",
+    "network",
+    "modelEgress",
+    "harnessProfile",
+    "workerManifests",
+    "evidenceDestinations",
+    "createdAt",
+    "expiresAt",
+    "bodyDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.execution-plan-body.v1" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "tenantId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "missionId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "handoffId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "handoffDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "specPackageDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "acceptanceCriteria": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "access", "argumentPolicyDigest", "maxCalls"],
+        "properties": {
+          "name": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+          "access": { "enum": ["read", "write", "execute", "network"] },
+          "argumentPolicyDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+          "maxCalls": { "type": "integer", "minimum": 1, "maximum": 100000 }
+        }
+      }
+    },
+    "filesystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["readPaths", "writePaths", "denyPaths", "copyIgnoredFiles"],
+      "properties": {
+        "readPaths": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/relativePath" }
+        },
+        "writePaths": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/relativePath" }
+        },
+        "denyPaths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/relativePath" }
+        },
+        "copyIgnoredFiles": { "const": false }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxDurationSeconds",
+        "maxToolCalls",
+        "maxInputTokens",
+        "maxOutputTokens",
+        "maxProcesses",
+        "maxFilesChanged",
+        "maxChangedBytes",
+        "maxConcurrentAgents"
+      ],
+      "properties": {
+        "maxDurationSeconds": { "type": "integer", "minimum": 1, "maximum": 604800 },
+        "maxToolCalls": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "maxInputTokens": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
+        "maxOutputTokens": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
+        "maxProcesses": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "maxFilesChanged": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "maxChangedBytes": { "type": "integer", "minimum": 0, "maximum": 1073741824 },
+        "maxConcurrentAgents": { "type": "integer", "minimum": 1, "maximum": 64 }
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workerMode", "gatewayOrigins"],
+      "properties": {
+        "workerMode": { "enum": ["none", "private-gateway-only"] },
+        "gatewayOrigins": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/origin" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "workerMode": { "const": "none" } },
+            "required": ["workerMode"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "gatewayOrigins": { "type": "array", "maxItems": 0 } }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "workerMode": { "const": "private-gateway-only" } },
+            "required": ["workerMode"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "gatewayOrigins": { "type": "array", "minItems": 1 } }
+          }
+        }
+      ]
+    },
+    "modelEgress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purposeCode",
+        "authorizationBasis",
+        "maximumClassification",
+        "sourcePaths",
+        "maxBytesPerRequest",
+        "region",
+        "subprocessors",
+        "zeroDataRetention",
+        "trainingAllowed",
+        "reuseAllowed",
+        "policyDigest"
+      ],
+      "properties": {
+        "purposeCode": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+        "authorizationBasis": {
+          "enum": ["contract", "consent", "legitimate-interest", "public-task", "not-applicable"]
+        },
+        "maximumClassification": {
+          "enum": ["public", "internal", "tenant-private", "personal"]
+        },
+        "sourcePaths": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/relativePath" }
+        },
+        "maxBytesPerRequest": { "type": "integer", "minimum": 0, "maximum": 10485760 },
+        "region": { "enum": ["local", "france", "eu"] },
+        "subprocessors": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+        },
+        "zeroDataRetention": { "const": true },
+        "trainingAllowed": { "const": false },
+        "reuseAllowed": { "const": false },
+        "policyDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+      }
+    },
+    "harnessProfile": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+    "workerManifests": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+    },
+    "evidenceDestinations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+    },
+    "createdAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "expiresAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "bodyDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "object",
+            "properties": { "workerMode": { "const": "none" } },
+            "required": ["workerMode"]
+          }
+        },
+        "required": ["network"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "modelEgress": {
+            "type": "object",
+            "properties": {
+              "authorizationBasis": { "const": "not-applicable" },
+              "sourcePaths": { "type": "array", "maxItems": 0 },
+              "maxBytesPerRequest": { "const": 0 },
+              "region": { "const": "local" },
+              "subprocessors": { "type": "array", "maxItems": 0 }
+            }
+          }
+        }
+      },
+      "else": {
+        "type": "object",
+        "properties": {
+          "modelEgress": {
+            "type": "object",
+            "properties": {
+              "authorizationBasis": {
+                "enum": ["contract", "consent", "legitimate-interest", "public-task"]
+              },
+              "sourcePaths": { "type": "array", "minItems": 1 },
+              "maxBytesPerRequest": { "type": "integer", "minimum": 1 },
+              "region": { "enum": ["france", "eu"] },
+              "subprocessors": { "type": "array", "minItems": 1 }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

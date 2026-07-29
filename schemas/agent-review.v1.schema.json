@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/agent-review.v1.schema.json",
+  "title": "Libre AI AgentReview v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "tenantId",
+    "missionId",
+    "subjectType",
+    "subjectDigest",
+    "evidence",
+    "contributorLineage",
+    "contributorAgentIds",
+    "reviewerAgentId",
+    "reviewerRunId",
+    "reviewerManifestDigest",
+    "reviewerPoolId",
+    "runtimeFamily",
+    "modelFamily",
+    "providerId",
+    "isolationProfileDigest",
+    "reviewSessionAttestation",
+    "blindReview",
+    "verdict",
+    "summary",
+    "nonce",
+    "issuedAt",
+    "expiresAt",
+    "signingKeyId",
+    "preimageDigest",
+    "signature"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.agent-review.v1" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "tenantId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "missionId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "subjectType": { "enum": ["execution-plan", "mission-result"] },
+    "subjectDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+    },
+    "contributorLineage": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+    "contributorAgentIds": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+    },
+    "reviewerAgentId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "reviewerRunId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "reviewerManifestDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "reviewerPoolId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "runtimeFamily": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "modelFamily": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "providerId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "isolationProfileDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "reviewSessionAttestation": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+    "blindReview": { "const": true },
+    "verdict": { "enum": ["approve", "reject"] },
+    "summary": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "severity", "count"],
+        "properties": {
+          "code": { "type": "string", "pattern": "^review\\.[a-z0-9_.-]+$", "maxLength": 128 },
+          "severity": { "enum": ["blocking", "major", "minor", "info"] },
+          "count": { "type": "integer", "minimum": 1, "maximum": 10000 }
+        }
+      }
+    },
+    "detailsEvidence": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+    "nonce": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "issuedAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "expiresAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "signingKeyId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "preimageDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "signature": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{86}$",
+      "minLength": 86,
+      "maxLength": 86
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": { "verdict": { "const": "approve" } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "severity": { "enum": ["minor", "info"] }
+              },
+              "required": ["severity"]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "verdict": { "const": "reject" } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["detailsEvidence"],
+        "properties": {
+          "summary": { "type": "array", "minItems": 1 },
+          "detailsEvidence": true
+        }
+      }
+    }
+  ]
+}

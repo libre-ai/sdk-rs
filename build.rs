@@ -11,9 +11,7 @@ type BoxError = Box<dyn Error + Send + Sync>;
 
 fn main() -> Result<(), BoxError> {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
-    let schema_dir = manifest_dir
-        .join("../../contracts/schemas")
-        .canonicalize()?;
+    let schema_dir = manifest_dir.join("schemas").canonicalize()?;
     println!("cargo:rerun-if-changed={}", schema_dir.display());
 
     let mut schema_paths = fs::read_dir(&schema_dir)?

@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/deletion-receipt.v1.schema.json",
+  "title": "Libre AI Deletion Receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "tenantId",
+    "owner",
+    "subjectDigests",
+    "requestedBy",
+    "requestedAt",
+    "status",
+    "stores"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.deletion-receipt.v1" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "tenantId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "owner": {
+      "enum": [
+        "practices",
+        "radar",
+        "sessions",
+        "model-policy",
+        "specifications",
+        "missions",
+        "auth-web",
+        "proof",
+        "artifact"
+      ]
+    },
+    "subjectDigests": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+    },
+    "requestedBy": {
+      "oneOf": [
+        { "type": "string", "pattern": "^usr_[a-z0-9]{16,64}$" },
+        { "type": "string", "pattern": "^svc_[a-z0-9]{16,64}$" }
+      ]
+    },
+    "requestedAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "completedAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "status": { "enum": ["complete", "blocked"] },
+    "stores": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["store", "outcome"],
+        "properties": {
+          "store": { "enum": ["postgresql", "cellar", "redis", "search", "key-store"] },
+          "outcome": { "enum": ["deleted", "not-applicable", "blocked"] },
+          "reasonCode": { "type": "string", "pattern": "^deletion\\.[a-z0-9_.-]+$" }
+        }
+      }
+    },
+    "backupExpiresAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "legalHold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reasonCode", "authority", "expiresAt"],
+      "properties": {
+        "reasonCode": { "type": "string", "pattern": "^legal-hold\\.[a-z0-9_.-]+$" },
+        "authority": { "$ref": "common.v1.schema.json#/$defs/urn" },
+        "expiresAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": { "status": { "const": "complete" } },
+        "required": ["status"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "completedAt": true,
+          "backupExpiresAt": true,
+          "stores": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "outcome": { "enum": ["deleted", "not-applicable"] } },
+              "required": ["outcome"]
+            }
+          }
+        },
+        "required": ["completedAt", "backupExpiresAt"],
+        "not": {
+          "type": "object",
+          "properties": { "legalHold": true },
+          "required": ["legalHold"]
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "status": { "const": "blocked" } },
+        "required": ["status"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "legalHold": true,
+          "stores": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "properties": { "outcome": { "const": "blocked" } },
+              "required": ["outcome"]
+            },
+            "minContains": 1
+          }
+        },
+        "required": ["legalHold"],
+        "not": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": { "completedAt": true },
+              "required": ["completedAt"]
+            },
+            {
+              "type": "object",
+              "properties": { "backupExpiresAt": true },
+              "required": ["backupExpiresAt"]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

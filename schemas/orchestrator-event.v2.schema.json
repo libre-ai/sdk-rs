@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/orchestrator-event.v2.schema.json",
+  "title": "Libre AI OrchestratorEvent v2",
+  "$defs": {
+    "budgetCounters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "durationSeconds",
+        "toolCalls",
+        "inputTokens",
+        "outputTokens",
+        "processesStarted",
+        "filesChanged",
+        "changedBytes"
+      ],
+      "properties": {
+        "durationSeconds": { "type": "integer", "minimum": 0, "maximum": 604800 },
+        "toolCalls": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "inputTokens": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+        "outputTokens": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+        "processesStarted": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "filesChanged": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "changedBytes": { "type": "integer", "minimum": 0, "maximum": 1073741824 }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "tenantId",
+    "missionId",
+    "runId",
+    "orchestratorId",
+    "planDigest",
+    "authorizationDigest",
+    "sequence",
+    "previousEventDigest",
+    "causationId",
+    "attempt",
+    "type",
+    "budgetDelta",
+    "budgetTotal",
+    "occurredAt",
+    "data",
+    "eventDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.orchestrator-event.v2" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "tenantId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "missionId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "runId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "orchestratorId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "planDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "authorizationDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
+    "previousEventDigest": {
+      "oneOf": [{ "type": "null" }, { "$ref": "common.v1.schema.json#/$defs/sha256" }]
+    },
+    "causationId": {
+      "oneOf": [{ "type": "null" }, { "$ref": "common.v1.schema.json#/$defs/urn" }]
+    },
+    "commandId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "attempt": { "type": "integer", "minimum": 1, "maximum": 10000 },
+    "type": {
+      "enum": [
+        "started",
+        "progressed",
+        "blocked",
+        "decision-requested",
+        "paused",
+        "resumed",
+        "budget-exceeded",
+        "cancelled",
+        "result-submitted",
+        "failed"
+      ]
+    },
+    "budgetDelta": { "$ref": "#/$defs/budgetCounters" },
+    "budgetTotal": { "$ref": "#/$defs/budgetCounters" },
+    "occurredAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reasonCode": {
+          "type": "string",
+          "pattern": "^orchestrator\\.[a-z0-9_.-]+$",
+          "maxLength": 128
+        },
+        "progressPermille": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "decisionRequestId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+        "artifact": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+        "evidence": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+        "contributorLineage": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+        "harnessAttestation": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+      }
+    },
+    "eventDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": { "sequence": { "const": 1 } },
+        "required": ["sequence"]
+      },
+      "then": {
+        "type": "object",
+        "properties": { "previousEventDigest": { "type": "null" } }
+      },
+      "else": {
+        "type": "object",
+        "properties": {
+          "previousEventDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "result-submitted" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": { "artifact": true, "evidence": true, "contributorLineage": true },
+            "required": ["artifact", "evidence", "contributorLineage"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "started" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": { "harnessAttestation": true },
+            "required": ["harnessAttestation"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "decision-requested" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": { "decisionRequestId": true },
+            "required": ["decisionRequestId"]
+          }
+        }
+      }
+    }
+  ]
+}

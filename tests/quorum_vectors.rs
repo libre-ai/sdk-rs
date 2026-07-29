@@ -48,7 +48,7 @@ struct Mutation {
 fn agent_review_quorum_vectors_match_candidate_semantics() {
     let document = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../contracts/fixtures/agent-orchestration-v1/quorum-vectors.v1.json"
+        "/node_modules/@libre-ai/contracts-authority/contracts/fixtures/agent-orchestration-v1/quorum-vectors.v1.json"
     ));
     let vectors: Vectors = serde_json::from_str(document).expect("quorum vectors must parse");
 

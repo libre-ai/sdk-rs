@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/envelope.v1.schema.json",
+  "title": "Libre AI UntrustedEnvelope v1",
+  "description": "Integrity-signed wrapper for untrusted content fed to a model-facing surface (loop-security kernel K3). The content is escaped so it cannot break the guard delimiters, tagged trusted:false with its source, and carries an offline-verifiable MAC over its canonical fields so a stripped or altered envelope is detectable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "trusted", "source", "content", "capturedAt", "integrity"],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.envelope.v1" },
+    "trusted": {
+      "const": false,
+      "description": "Always false. Envelope content is data, never instructions (K2: operational data is never authority)."
+    },
+    "source": {
+      "enum": ["web", "email", "memory", "tool-output", "tool-description", "mcp-description"],
+      "description": "The untrusted origin class of the content."
+    },
+    "label": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Free-form origin label (e.g. a domain or tool name). Never echoed as authority."
+    },
+    "content": {
+      "type": "string",
+      "maxLength": 1048576,
+      "description": "The escaped untrusted text: guard delimiters occurring in the original are neutralized so the payload cannot forge the closing marker."
+    },
+    "capturedAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alg", "keyId", "mac"],
+      "properties": {
+        "alg": {
+          "const": "HMAC-SHA256",
+          "description": "Symmetric integrity: no key ceremony required (session/ephemeral key), consistent with the deferred Ed25519 signing (WP-G2-Z01)."
+        },
+        "keyId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+        "mac": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "description": "Base64url (unpadded) HMAC-SHA256 over the canonical serialization of schemaVersion, trusted, source, label, content and capturedAt. 43 chars = 32 bytes."
+        }
+      }
+    }
+  }
+}

@@ -49,7 +49,7 @@ fn every_schema_compiles_and_every_fixture_matches_in_both_directions() {
     let schema_count = registry.schema_names().count();
 
     let fixtures: Value = serde_json::from_str(include_str!(
-        "../../../contracts/fixtures/schema-fixtures.v1.json"
+        "../node_modules/@libre-ai/contracts-authority/contracts/fixtures/schema-fixtures.v1.json"
     ))
     .expect("fixture document");
     let cases = fixtures["cases"].as_array().expect("fixture cases");

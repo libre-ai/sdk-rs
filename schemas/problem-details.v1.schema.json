@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/problem-details.v1.schema.json",
+  "title": "Libre AI problem details v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["error"],
+  "properties": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "requestId"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]*\\.[a-z][a-z0-9_.-]*$" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "requestId": { "type": "string", "pattern": "^req_[a-z0-9]{16,64}$" },
+        "fields": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "code"],
+            "properties": {
+              "path": { "type": "string", "pattern": "^/", "maxLength": 512 },
+              "code": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]*$" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
