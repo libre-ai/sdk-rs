@@ -1,0 +1,49 @@
+# Fiche d'état du projet — autorité de l'état depuis ADR-0020 (design §6.2).
+# La section statut du README est générée depuis cette fiche (sentinelles).
+schema_version: libre-ai.project.v1
+project: sdk-rs
+repository: libre-ai/sdk-rs
+kind: satellite
+layer: couche-4
+statement:
+  for: "les projets de la constellation Libre AI"
+  who_faces: "le coût et la dérive de machineries recopiées d'un repo à l'autre"
+  enables: "consommer les contrats en Rust sans copie manuelle"
+  producing:
+    - "des types conformes aux autorités, sous gate de dérive"
+  without_depending_on:
+    - "aucun service tiers, aucune copie non vérifiée — consommation épinglée et gates de dérive"
+summary: "Types de contrats Rust générés depuis les autorités."
+current_situation: >-
+  Née verte en γ 3.4 (ex crates/contract-types) ; première git-dep Cargo intra-org prouvée avec artifacts.
+scope:
+  - "Types de contrats Rust générés depuis les autorités."
+non_goals:
+  - "aucune seconde implémentation durable de ce domaine ailleurs dans la constellation"
+dependencies:
+  - on: libre-ai/governance
+    why: "gabarit de flotte et gates de qualité"
+    pinned: "épinglée par SHA (ou release pour les outils) là où elle est consommée"
+maturity: usable
+confidence: medium
+exposure: usable-verifiable
+freshness:
+  last_verified_on: "2026-07-30"
+scope_stability: stable
+benchmark:
+  none: "n/a (shared brick, no external parity target)"
+phases:
+  - id: service
+    title: En service dans la constellation
+    exit_criteria:
+      - id: consumed-pinned
+        text: "La crate est consommée épinglée en git-dep Cargo intra-org (artifacts) sous [sources.allow-org]."
+        weight: 1
+        status: accepted
+        evidence:
+          date: "2026-07-29"
+          reference: "gate-acceptance-log 2026-07-29 (ligne 3.4), PRs hub #279-#283"
+      - id: compat-policy
+        text: "L'API est couverte par une politique de compatibilité déclarée et un versionnage de rupture outillé."
+        weight: 1
+        status: pending
