@@ -70,3 +70,101 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo test --locked --all-features
+
+  # `deny.toml` has been versioned since this workspace was bootstrapped and no
+  # job ever read it: the licence allowlist, the yanked-crate rule, the ban list
+  # and the source allowance were policy on paper. This job executes it.
+  #
+  # The split between the two checks below is deliberate. `bans`, `licenses` and
+  # `sources` are a pure function of the committed Cargo.lock and deny.toml, so
+  # their verdict is reproducible at constant commit — that is what a blocking
+  # gate may assert. The advisory verdict is not: it depends on the RustSec
+  # database fetched at run time, so a commit that is green today turns red
+  # tomorrow with nothing in this repository having changed. Blocking on it
+  # would make a required check a function of the calendar; it is reported
+  # instead, and acted on by a follow-up commit that bumps, pins or drops the
+  # affected crate.
+  dependency-policy:
+    name: Dependency policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable action
+
+      # Both tools are pinned by exact version AND by the sha256 of the release
+      # archive, like the Bun toolchain above: `cargo install` resolves against
+      # a mutable registry and would silently change the enforcing binary
+      # between two runs of the same commit.
+      - name: Install pinned dependency-policy toolchain
+        env:
+          CARGO_DENY_VERSION: 0.19.5
+          CARGO_DENY_ARCHIVE_URL: https://github.com/EmbarkStudios/cargo-deny/releases/download/0.19.5/cargo-deny-0.19.5-x86_64-unknown-linux-musl.tar.gz
+          CARGO_DENY_ARCHIVE_SHA256: 5ea64ae09959b5fe1072d898f95caaa89b374678ba6728d5e9ed1366745479b0
+          CARGO_AUDIT_VERSION: 0.22.1
+          CARGO_AUDIT_ARCHIVE_URL: https://github.com/rustsec/rustsec/releases/download/cargo-audit%2Fv0.22.1/cargo-audit-x86_64-unknown-linux-musl-v0.22.1.tgz
+          CARGO_AUDIT_ARCHIVE_SHA256: c32506f338bdcdaef5a17fb9f33abb6ecf9561324cfd34237fd335f9283a1eab
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/cargo-deny.tar.gz" "$CARGO_DENY_ARCHIVE_URL"
+          echo "$CARGO_DENY_ARCHIVE_SHA256  $RUNNER_TEMP/cargo-deny.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/cargo-deny.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/cargo-deny-$CARGO_DENY_VERSION-x86_64-unknown-linux-musl" >> "$GITHUB_PATH"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/cargo-audit.tgz" "$CARGO_AUDIT_ARCHIVE_URL"
+          echo "$CARGO_AUDIT_ARCHIVE_SHA256  $RUNNER_TEMP/cargo-audit.tgz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/cargo-audit.tgz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/cargo-audit-x86_64-unknown-linux-musl-v$CARGO_AUDIT_VERSION" >> "$GITHUB_PATH"
+
+      # A gate that only prints "ok" cannot be distinguished from a gate that
+      # checked nothing: state the enforcing binaries and the policy they read.
+      - name: State the policy under enforcement
+        run: |
+          set -euo pipefail
+          cargo-deny --version
+          cargo-audit --version
+          echo "policy file: deny.toml (blocking: bans, licenses, sources)"
+          echo "::group::deny.toml as enforced"
+          cat deny.toml
+          echo "::endgroup::"
+
+      - name: Bans, licences and sources (blocking)
+        run: cargo-deny check bans licenses sources
+
+      # Names every licence resolved across the graph and the crates carrying
+      # it, so the log shows what the allowlist actually admitted rather than
+      # only that it admitted everything.
+      #
+      # Informative only, so it must not decide the job: the licence verdict was
+      # already rendered by the blocking step above, and a listing that fails to
+      # print says nothing about whether the policy holds. `!cancelled()` keeps
+      # the mapping visible when the blocking step fails — which is exactly when
+      # someone is asking a licence question.
+      - name: Licences resolved across the dependency graph
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          echo "::group::Licence to crate mapping"
+          cargo-deny list
+          echo "::endgroup::"
+
+      # `!cancelled()`: `continue-on-error` alone only stops this step from
+      # failing the job — GitHub still skips it once an earlier step has failed,
+      # so the advisory report evaporates exactly when someone reading a red job
+      # wants to know whether there is also a live vulnerability.
+      - name: Advisory scan (reported, non-blocking)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          deny_rc=0
+          # Also the only place [advisories] yanked = "deny" is exercised:
+          # cargo-deny folds yanked-crate detection into the advisories check.
+          cargo-deny check advisories || deny_rc=$?
+          audit_rc=0
+          cargo-audit audit || audit_rc=$?
+          echo "cargo-deny check advisories -> exit $deny_rc"
+          echo "cargo-audit audit           -> exit $audit_rc"
+          if [ "$deny_rc" -ne 0 ] || [ "$audit_rc" -ne 0 ]; then
+            echo "::warning::Advisory scan reported findings; see the log above."
+            exit 1
+          fi
