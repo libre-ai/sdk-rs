@@ -132,14 +132,27 @@ jobs:
       # Names every licence resolved across the graph and the crates carrying
       # it, so the log shows what the allowlist actually admitted rather than
       # only that it admitted everything.
+      #
+      # Informative only, so it must not decide the job: the licence verdict was
+      # already rendered by the blocking step above, and a listing that fails to
+      # print says nothing about whether the policy holds. `!cancelled()` keeps
+      # the mapping visible when the blocking step fails — which is exactly when
+      # someone is asking a licence question.
       - name: Licences resolved across the dependency graph
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         run: |
           set -euo pipefail
           echo "::group::Licence to crate mapping"
           cargo-deny list
           echo "::endgroup::"
 
+      # `!cancelled()`: `continue-on-error` alone only stops this step from
+      # failing the job — GitHub still skips it once an earlier step has failed,
+      # so the advisory report evaporates exactly when someone reading a red job
+      # wants to know whether there is also a live vulnerability.
       - name: Advisory scan (reported, non-blocking)
+        if: ${{ !cancelled() }}
         continue-on-error: true
         run: |
           set -uo pipefail
