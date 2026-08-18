@@ -1,18 +1,31 @@
 # sdk-rs Canonical Agent Rules
 
-Rust SDK projection (couche 4) of the Libre AI locked contracts. The
-`schemas/` directory is a **verified projection** of the `contracts`
-authority at the revision pinned in `package.json`/`bun.lock` (I-05):
-embedded at compile time by `build.rs`, byte-exact under
-`bun run check:schemas`, never hand-edited, never canonical. A contract
-change here is a pin bump plus re-vendoring (`--write`), never an edit.
-The governance gate template is consumed as pinned reusable workflows and
-a pinned tooling git-dep. Consumers install this crate as a sha-pinned
-Cargo git-dep ([sources.allow-org] github = ["libre-ai"]).
+## Authority
 
-The repository's tests are Rust and OWNED by the rust-quality CI job
-(cargo test --locked after bun install); the bun chain deliberately does
-not run them — « the chain is green » proves the gates, « rust-quality is
-green » proves the tests (K4 SDKRS-02). Run `bun run check` and
-`cargo test --locked` before pushing; never hide a red
-test. Security > quality > performance > completeness.
+Rust SDK projection (couche 4) of the Libre AI locked contracts: it lets
+constellation crates consume contracts in Rust without manual copying,
+producing types conformant to the authorities under a drift gate. The
+`schemas/` directory is a verified projection of the contracts authority
+(https://raw.githubusercontent.com/libre-ai/contracts/main/AGENTS.md),
+pinned in `package.json`/`bun.lock`, embedded at compile time by
+`build.rs`, byte-exact under `bun run check:schemas`, never hand-edited.
+Fleet doctrine and the gate template live upstream:
+https://raw.githubusercontent.com/libre-ai/governance/main/AGENTS.md
+
+## Boundaries
+
+- Contract shapes are canonical in `libre-ai/contracts`; a contract
+  change here is a pin bump plus re-vendoring, never an edit.
+- Current exposure and acceptance state live in this repository's own
+  `project.v1.yaml`, aggregated by governance — never duplicated here.
+
+## Quality gates
+
+Run `bun run check`; for the Rust crate, `cargo test --locked
+--all-features`. Never hide a red test.
+
+## Agents
+
+- Read actual state before editing.
+- Stage files before running tree-walking gates.
+- Security > quality > performance > completeness.
