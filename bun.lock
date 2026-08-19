@@ -6,7 +6,7 @@
       "name": "@libre-ai/sdk-rs-gates",
       "devDependencies": {
         "@biomejs/biome": "2.5.3",
-        "@libre-ai/contracts-authority": "github:libre-ai/contracts#ee144f03cf7d3deeda02a9fcd5e10377c2e99cb4",
+        "@libre-ai/contracts-authority": "github:libre-ai/contracts#af6ea32c48bd470694e9bf5f8787f417f8a781a6",
         "@libre-ai/governance": "github:libre-ai/governance#9cd1d421d318129db99456d963f4bc1cfad67b33",
         "@types/bun": "1.3.14",
         "typescript": "7.0.2",
@@ -35,7 +35,7 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.5.3", "", { "os": "win32", "cpu": "x64" }, "sha512-ExSaJWi4/u6+GXCszlSKpWSjKNbDseAYqqkCznsCsZ/4uidZ/BEqsCc5/3ctlq6dfIubdIIRSVLC/PG9xPl70Q=="],
 
-    "@libre-ai/contracts-authority": ["@libre-ai/contracts-authority@github:libre-ai/contracts#ee144f0", { "dependencies": { "ajv": "8.20.0", "ajv-formats": "3.0.1", "entities": "8.0.0" } }, "libre-ai-contracts-ee144f0", "sha512-onNB1IIbj5o7pSO02xnks1bofJdZktmZSk/ZqsqfQ+k9ZbhXuPwxnE/JyyS3VaJGrOYdOie5V7aNm0UrOJshEQ=="],
+    "@libre-ai/contracts-authority": ["@libre-ai/contracts-authority@github:libre-ai/contracts#af6ea32", { "dependencies": { "ajv": "8.20.0", "ajv-formats": "3.0.1", "entities": "8.0.0" } }, "libre-ai-contracts-af6ea32", "sha512-gIJo7afdMRtUptRPWRxFvzD9HqR8FIpeZ4dVlv2WnO0LIXpNGXWXpaLixWx9a4q6S9eYQDNqiQTmv2x0CXD7vg=="],
 
     "@libre-ai/governance": ["@libre-ai/governance@github:libre-ai/governance#9cd1d42", { "dependencies": { "ajv": "8.20.0", "ajv-formats": "3.0.1", "entities": "8.0.0" } }, "libre-ai-governance-9cd1d42", "sha512-vzThmVlYu0CvDUJFsK/LU4qNZk4apGgpyp0DcnXvu1XObiO0CCOV8jFzPRIMz+C+bq+UALuoMJpA6nsdtuEuIw=="],
 
