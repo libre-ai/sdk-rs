@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/execution-authorization.v2.schema.json",
+  "title": "Libre AI ExecutionAuthorization v2",
+  "$defs": {
+    "successorBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executionTransferId",
+        "executionTransferDigest",
+        "predecessorRunId",
+        "predecessorPlanDigest",
+        "sealedRevision",
+        "terminalEffectInventoryDigest"
+      ],
+      "properties": {
+        "executionTransferId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+        "executionTransferDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+        "predecessorRunId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+        "predecessorPlanDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+        "sealedRevision": { "$ref": "common.v1.schema.json#/$defs/revision" },
+        "terminalEffectInventoryDigest": {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "organizationId",
+    "missionId",
+    "missionRevision",
+    "missionRecordDigest",
+    "planId",
+    "planDigest",
+    "graphDigest",
+    "planQuorum",
+    "generation",
+    "lineageMode",
+    "successorBinding",
+    "revocationId",
+    "issuedAt",
+    "expiresAt",
+    "authorizationDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.execution-authorization.v2" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "organizationId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "missionId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "missionRevision": { "$ref": "common.v1.schema.json#/$defs/revision" },
+    "missionRecordDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "planId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "planDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "graphDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "planQuorum": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+    "protectedHumanGate": { "$ref": "common.v1.schema.json#/$defs/approvalReference" },
+    "generation": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
+    "lineageMode": { "enum": ["initial", "successor"] },
+    "successorBinding": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/successorBinding" }]
+    },
+    "revocationId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "issuedAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "expiresAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "authorizationDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": { "lineageMode": { "const": "initial" } },
+        "required": ["lineageMode"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "generation": { "const": 1 },
+          "successorBinding": { "type": "null" }
+        }
+      },
+      "else": {
+        "type": "object",
+        "properties": {
+          "generation": { "type": "integer", "minimum": 2 },
+          "successorBinding": { "$ref": "#/$defs/successorBinding" }
+        }
+      }
+    }
+  ]
+}

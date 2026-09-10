@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/human-decision-response.v1.schema.json",
+  "title": "Libre AI HumanDecisionResponse v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "organizationId",
+    "missionId",
+    "runId",
+    "stepId",
+    "attemptId",
+    "requestId",
+    "requestDigest",
+    "choiceId",
+    "actorAuthorization",
+    "expectedRevision",
+    "idempotencyKey",
+    "commentArtifactRef",
+    "submittedAt",
+    "responseDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.human-decision-response.v1" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "organizationId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "missionId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "runId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "stepId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "attemptId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "requestId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "requestDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "choiceId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "actorAuthorization": { "$ref": "common.v1.schema.json#/$defs/approvalReference" },
+    "expectedRevision": { "$ref": "common.v1.schema.json#/$defs/revision" },
+    "idempotencyKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._~-]{16,128}$",
+      "maxLength": 128
+    },
+    "commentArtifactRef": {
+      "oneOf": [{ "type": "null" }, { "$ref": "common.v1.schema.json#/$defs/artifactReference" }]
+    },
+    "submittedAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "responseDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+  }
+}

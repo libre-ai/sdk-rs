@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "@libre-ai/governance": "github:libre-ai/governance#8c238c09efd443a4866459160dac1cfee31d88be",
-    "@libre-ai/contracts-authority": "github:libre-ai/contracts#af6ea32c48bd470694e9bf5f8787f417f8a781a6",
+    "@libre-ai/contracts-authority": "github:libre-ai/contracts#cb865613039c78e344bcbb51f4dbdfd469f634b9",
     "@biomejs/biome": "2.5.3",
     "@types/bun": "1.3.14",
     "typescript": "7.0.2"

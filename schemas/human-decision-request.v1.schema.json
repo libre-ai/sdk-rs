@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/human-decision-request.v1.schema.json",
+  "title": "Libre AI HumanDecisionRequest v1",
+  "$defs": {
+    "choice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["choiceId", "label", "consequenceCode"],
+      "properties": {
+        "choiceId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "consequenceCode": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "choiceId": { "const": "other" } },
+            "required": ["choiceId"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "consequenceCode": { "const": "replan-required" } }
+          }
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "organizationId",
+    "missionId",
+    "runId",
+    "planDigest",
+    "graphDigest",
+    "stepId",
+    "attemptId",
+    "choices",
+    "requiredRole",
+    "expectedRevision",
+    "expiresAt",
+    "noResponseOutcomeCode",
+    "evidenceRefs",
+    "requestDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.human-decision-request.v1" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "organizationId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "missionId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "runId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "planDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "graphDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "stepId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "attemptId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "choices": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/choice" }
+    },
+    "requiredRole": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$",
+      "maxLength": 64
+    },
+    "expectedRevision": { "$ref": "common.v1.schema.json#/$defs/revision" },
+    "expiresAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "noResponseOutcomeCode": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "evidenceRefs": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+    },
+    "requestDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+  }
+}

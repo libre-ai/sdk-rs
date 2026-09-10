@@ -1,0 +1,568 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.libre-ai.fr/schemas/orchestrator-event.v3.schema.json",
+  "title": "Libre AI OrchestratorEvent v3",
+  "$defs": {
+    "nullableUrn": {
+      "type": ["string", "null"],
+      "pattern": "^urn:libre-ai:[a-z][a-z0-9-]*:[A-Za-z0-9._~-]+$",
+      "maxLength": 512
+    },
+    "budgetCounters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "durationSeconds",
+        "toolCalls",
+        "inputTokens",
+        "outputTokens",
+        "processesStarted",
+        "filesChanged",
+        "changedBytes"
+      ],
+      "properties": {
+        "durationSeconds": { "type": "integer", "minimum": 0, "maximum": 604800 },
+        "toolCalls": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "inputTokens": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+        "outputTokens": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+        "processesStarted": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "filesChanged": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "changedBytes": { "type": "integer", "minimum": 0, "maximum": 1073741824 }
+      }
+    },
+    "cause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "digest"],
+      "properties": {
+        "kind": { "enum": ["command", "event", "decision", "effect", "transfer"] },
+        "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+        "digest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+      }
+    },
+    "graphPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["graphRef"],
+      "properties": {
+        "graphRef": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+      }
+    },
+    "authorizationPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorizationRef"],
+      "properties": {
+        "authorizationRef": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+      }
+    },
+    "invocationPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["invocationRef"],
+      "properties": {
+        "invocationRef": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+      }
+    },
+    "resultPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resultRef", "outcomeCode"],
+      "properties": {
+        "resultRef": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+        "outcomeCode": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+      }
+    },
+    "decisionRequestPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decisionRequestRef"],
+      "properties": {
+        "decisionRequestRef": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+      }
+    },
+    "decisionResponsePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decisionResponseRef", "outcomeCode"],
+      "properties": {
+        "decisionResponseRef": { "$ref": "common.v1.schema.json#/$defs/artifactReference" },
+        "outcomeCode": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+      }
+    },
+    "effectPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effectId", "effectEmissionId", "effectStatus", "lifecycleRef"],
+      "properties": {
+        "effectId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+        "effectEmissionId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+        "effectStatus": {
+          "enum": [
+            "reserved",
+            "started",
+            "committed",
+            "rejected-final",
+            "not-committed-final",
+            "state-unknown"
+          ]
+        },
+        "lifecycleRef": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+      }
+    },
+    "sealPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sealedRevision", "terminalEffectInventoryDigest"],
+      "properties": {
+        "sealedRevision": { "$ref": "common.v1.schema.json#/$defs/revision" },
+        "terminalEffectInventoryDigest": {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        }
+      }
+    },
+    "transferPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executionTransferRef"],
+      "properties": {
+        "executionTransferRef": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+      }
+    },
+    "diagnosticPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reasonCode", "lifecycleRef"],
+      "properties": {
+        "reasonCode": {
+          "enum": [
+            "orchestrator-authorization-refused",
+            "orchestrator-budget-exceeded",
+            "orchestrator-causal-conflict",
+            "orchestrator-effect-continuity-barrier",
+            "orchestrator-lineage-closed"
+          ]
+        },
+        "lifecycleRef": { "$ref": "common.v1.schema.json#/$defs/artifactReference" }
+      }
+    },
+    "completionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcomeCode"],
+      "properties": {
+        "outcomeCode": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "organizationId",
+    "missionId",
+    "runId",
+    "orchestratorId",
+    "planDigest",
+    "authorizationDigest",
+    "graphDigest",
+    "generation",
+    "sequence",
+    "previousEventDigest",
+    "stepId",
+    "attemptId",
+    "workerInvocationId",
+    "selectedEdgeId",
+    "cause",
+    "type",
+    "budgetDelta",
+    "budgetTotal",
+    "occurredAt",
+    "data",
+    "eventDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "libre-ai.orchestrator-event.v3" },
+    "id": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "organizationId": { "$ref": "common.v1.schema.json#/$defs/tenantId" },
+    "missionId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "runId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+    "orchestratorId": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "planDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "authorizationDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "graphDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" },
+    "generation": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
+    "previousEventDigest": {
+      "oneOf": [{ "type": "null" }, { "$ref": "common.v1.schema.json#/$defs/sha256" }]
+    },
+    "stepId": { "$ref": "#/$defs/nullableUrn" },
+    "attemptId": { "$ref": "#/$defs/nullableUrn" },
+    "workerInvocationId": { "$ref": "#/$defs/nullableUrn" },
+    "selectedEdgeId": { "$ref": "#/$defs/nullableUrn" },
+    "cause": { "$ref": "#/$defs/cause" },
+    "type": {
+      "enum": [
+        "graph-activated",
+        "step-authorized",
+        "invocation-started",
+        "step-result-recorded",
+        "decision-requested",
+        "decision-consumed",
+        "effect-reserved",
+        "effect-started",
+        "effect-terminal",
+        "effect-unknown",
+        "predecessor-sealed",
+        "generation-transferred",
+        "run-blocked",
+        "quarantined",
+        "run-completed"
+      ]
+    },
+    "budgetDelta": { "$ref": "#/$defs/budgetCounters" },
+    "budgetTotal": { "$ref": "#/$defs/budgetCounters" },
+    "occurredAt": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "data": {
+      "oneOf": [
+        { "$ref": "#/$defs/graphPayload" },
+        { "$ref": "#/$defs/authorizationPayload" },
+        { "$ref": "#/$defs/invocationPayload" },
+        { "$ref": "#/$defs/resultPayload" },
+        { "$ref": "#/$defs/decisionRequestPayload" },
+        { "$ref": "#/$defs/decisionResponsePayload" },
+        { "$ref": "#/$defs/effectPayload" },
+        { "$ref": "#/$defs/sealPayload" },
+        { "$ref": "#/$defs/transferPayload" },
+        { "$ref": "#/$defs/diagnosticPayload" },
+        { "$ref": "#/$defs/completionPayload" }
+      ]
+    },
+    "eventDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": { "sequence": { "const": 1 } },
+        "required": ["sequence"]
+      },
+      "then": {
+        "type": "object",
+        "properties": { "previousEventDigest": { "type": "null" } }
+      },
+      "else": {
+        "type": "object",
+        "properties": {
+          "previousEventDigest": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "graph-activated",
+              "predecessor-sealed",
+              "generation-transferred",
+              "run-blocked",
+              "quarantined",
+              "run-completed"
+            ]
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "stepId": { "type": "null" },
+          "attemptId": { "type": "null" },
+          "workerInvocationId": { "type": "null" },
+          "selectedEdgeId": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "step-authorized" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "stepId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "attemptId": { "type": "null" },
+          "workerInvocationId": { "type": "null" },
+          "selectedEdgeId": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "decision-requested" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "stepId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "attemptId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "workerInvocationId": { "type": "null" },
+          "selectedEdgeId": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": ["invocation-started", "effect-reserved", "effect-started", "effect-unknown"]
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "stepId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "attemptId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "workerInvocationId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "selectedEdgeId": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "enum": ["step-result-recorded", "effect-terminal"] } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "stepId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "attemptId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "workerInvocationId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "selectedEdgeId": { "$ref": "common.v1.schema.json#/$defs/urn" }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "decision-consumed" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "stepId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "attemptId": { "$ref": "common.v1.schema.json#/$defs/urn" },
+          "workerInvocationId": { "type": "null" },
+          "selectedEdgeId": { "$ref": "common.v1.schema.json#/$defs/urn" }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "graph-activated" } },
+        "required": ["type"]
+      },
+      "then": { "type": "object", "properties": { "data": { "$ref": "#/$defs/graphPayload" } } }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "step-authorized" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": { "data": { "$ref": "#/$defs/authorizationPayload" } }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "invocation-started" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": { "data": { "$ref": "#/$defs/invocationPayload" } }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "step-result-recorded" } },
+        "required": ["type"]
+      },
+      "then": { "type": "object", "properties": { "data": { "$ref": "#/$defs/resultPayload" } } }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "decision-requested" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": { "data": { "$ref": "#/$defs/decisionRequestPayload" } }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "decision-consumed" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": { "data": { "$ref": "#/$defs/decisionResponsePayload" } }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": ["effect-reserved", "effect-started", "effect-terminal", "effect-unknown"]
+          }
+        },
+        "required": ["type"]
+      },
+      "then": { "type": "object", "properties": { "data": { "$ref": "#/$defs/effectPayload" } } }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "effect-reserved" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "cause": {
+            "type": "object",
+            "properties": { "kind": { "const": "effect" } }
+          },
+          "data": {
+            "type": "object",
+            "properties": { "effectStatus": { "const": "reserved" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "effect-started" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "cause": {
+            "type": "object",
+            "properties": { "kind": { "const": "effect" } }
+          },
+          "data": {
+            "type": "object",
+            "properties": { "effectStatus": { "const": "started" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "effect-terminal" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "cause": {
+            "type": "object",
+            "properties": { "kind": { "const": "effect" } }
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "effectStatus": {
+                "enum": ["committed", "rejected-final", "not-committed-final"]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "effect-unknown" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "cause": {
+            "type": "object",
+            "properties": { "kind": { "const": "effect" } }
+          },
+          "data": {
+            "type": "object",
+            "properties": { "effectStatus": { "const": "state-unknown" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "predecessor-sealed" } },
+        "required": ["type"]
+      },
+      "then": { "type": "object", "properties": { "data": { "$ref": "#/$defs/sealPayload" } } }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "generation-transferred" } },
+        "required": ["type"]
+      },
+      "then": { "type": "object", "properties": { "data": { "$ref": "#/$defs/transferPayload" } } }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "enum": ["run-blocked", "quarantined"] } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": { "data": { "$ref": "#/$defs/diagnosticPayload" } }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "type": { "const": "run-completed" } },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "properties": { "data": { "$ref": "#/$defs/completionPayload" } }
+      }
+    }
+  ]
+}
