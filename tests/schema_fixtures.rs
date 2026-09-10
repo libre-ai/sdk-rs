@@ -1,6 +1,19 @@
 use libre_ai_contract_types::{ContractRegistry, ContractRegistryError};
 use serde_json::{Map, Value};
 
+const AUTHORIZED_EXECUTION_SCHEMA_NAMES: [&str; 10] = [
+    "effect-attestation.v1.schema.json",
+    "execution-authorization.v2.schema.json",
+    "execution-graph.v1.schema.json",
+    "execution-plan-body.v2.schema.json",
+    "execution-transfer.v1.schema.json",
+    "human-decision-request.v1.schema.json",
+    "human-decision-response.v1.schema.json",
+    "orchestrator-event.v3.schema.json",
+    "retention-policy.v2.schema.json",
+    "step-invocation.v1.schema.json",
+];
+
 fn mutate(input: &Value, mutation: &Value) -> Value {
     let mut output = input.clone();
     let path = mutation["path"].as_str().expect("mutation path");
@@ -114,6 +127,25 @@ fn every_schema_compiles_and_every_fixture_matches_in_both_directions() {
             );
         }
     }
+}
+
+#[test]
+fn authorized_execution_candidates_and_retention_data_are_projected() {
+    let registry = ContractRegistry::embedded().expect("canonical schemas must compile");
+    let schema_names = registry.schema_names().collect::<Vec<_>>();
+    for schema_name in AUTHORIZED_EXECUTION_SCHEMA_NAMES {
+        assert!(schema_names.contains(&schema_name), "missing {schema_name}");
+    }
+
+    let retention: Value = serde_json::from_str(include_str!(
+        "../node_modules/@libre-ai/contracts-authority/contracts/data/retention.v2.json"
+    ))
+    .expect("retention v2 authority data must parse");
+    assert!(
+        registry
+            .is_valid("retention-policy.v2.schema.json", &retention)
+            .expect("retention v2 schema must be known")
+    );
 }
 
 #[test]
