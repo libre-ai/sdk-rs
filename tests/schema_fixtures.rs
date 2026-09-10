@@ -130,7 +130,7 @@ fn every_schema_compiles_and_every_fixture_matches_in_both_directions() {
 }
 
 #[test]
-fn authorized_execution_candidates_and_retention_data_are_projected() {
+fn authorized_execution_lock_and_retention_data_are_projected() {
     let registry = ContractRegistry::embedded().expect("canonical schemas must compile");
     let schema_names = registry.schema_names().collect::<Vec<_>>();
     for schema_name in AUTHORIZED_EXECUTION_SCHEMA_NAMES {
